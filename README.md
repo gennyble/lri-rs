@@ -13,6 +13,8 @@ command: `java -jar quiltflower.jar -dgs=1 Light-L16-Archive/APKs/light_camera_d
 And it's proved useful! In `light/co/camera/proto/LightHeader.java` we can get an idea
 of the file header?
 
+Can we parse the message in the header with the protobuf as described in: [dllu/lri-rs](https://github.com/dllu/lri-rs/blob/main/proto/lightheader.proto)?
+
 ### File Header
 The file seems to consist of a header followed be a proto buf message
 that then gets appended to it.
