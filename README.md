@@ -20,16 +20,7 @@ that then gets appended to it.
 The header is **little endian**
 
 #### File Header Structure
-HEADER_LENGTH = 28 + MAGIC_ID length (so 32)
-MAGIC_ID: bytes making up ascii "LELR"
-long: protobuf message length + HEADER_LENGTH
-long: HEADER_LENGTH
-int: message length
-byte: type (passed to constructor with message)
-reserved: 7 bytes
-encoded protobuf message
-
-The header is 32 bytes long. and goes as follows:
+The header is 32 bytes long. and goes as follows:  
 | bytes | meaning |
 | ----- | ------- |
 | 4     | Magic Number: "LELR" |
