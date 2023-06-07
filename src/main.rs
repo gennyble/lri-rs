@@ -1,3 +1,5 @@
+use std::fs::File;
+
 // This code is going to be rough. Just trying to parse this using the technique
 // I know: just play with the raw data
 fn main() {
@@ -18,6 +20,9 @@ fn main() {
 		reserved,
 	} = header;
 
+	//AHHH it does not seem the combined legth or header length are correct? it seems like nonsense?
+	//drat. we'll know when I try and parse the message I think I extracted. 1510 bytes seems too
+	//small almost.
 	println!("\nMagic: {magic_number}\nCombined Length: {combined_length}\nHeader Length: {header_length}\nMessage Length: {message_length}\nKind: {kind}\nReserved: {reserved:?}\nNext 8 Bytes: {:?}", &data[0..8]);
 
 	let message = &data[..message_length as usize];
@@ -26,7 +31,17 @@ fn main() {
 	println!("\nTook Message of {message_length} bytes");
 	println!("{} bytes left", data.len());
 
+	let rt = (data.len() as f32).sqrt().floor() as usize;
+	println!("{} png", rt * rt);
+
 	println!("{:?}", &data[0..32]);
+
+	let file = File::create("ahh.png").unwrap();
+	let mut enc = png::Encoder::new(file, rt as u32, rt as u32);
+	enc.set_color(png::ColorType::Grayscale);
+	enc.set_depth(png::BitDepth::Eight);
+	let mut writer = enc.write_header().unwrap();
+	writer.write_image_data(&data[..rt * rt]).unwrap();
 }
 
 struct LightHeader {
