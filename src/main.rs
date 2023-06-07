@@ -1,5 +1,7 @@
 use std::fs::File;
 
+use lri_rs::Message;
+
 // This code is going to be rough. Just trying to parse this using the technique
 // I know: just play with the raw data
 fn main() {
@@ -28,22 +30,31 @@ fn main() {
 	println!("\nMagic: {magic_number}\nCombined Length: {combined_length}\nHeader Length: {header_length}\nMessage Length: {message_length}\nKind: {kind}\nReserved: {reserved:?}\nNext 8 Bytes: {:?}", &data[0..8]);
 
 	let message = &data[..message_length as usize];
-	let data = &data[message_length as usize..];
+	//let data = &data[message_length as usize..];
+
+	//let asdf = lri_rs::LightHeader::parse_from_bytes(&data).unwrap();
+	//println!("{:?}", asdf.get_image_time_stamp());
 
 	println!("\nTook Message of {message_length} bytes");
 	println!("{} bytes left", data.len());
 
-	let rt = (data.len() as f32).sqrt().floor() as usize;
+	let rt = (data.len() as f32 / 2.0).sqrt().floor() as usize;
 	println!("{} png", rt * rt);
 
 	println!("{:?}", &data[0..32]);
 
+	let width = rt / 8;
+	let height = rt * 4;
+	let pixels = width * height;
+
 	let file = File::create("ahh.png").unwrap();
-	let mut enc = png::Encoder::new(file, rt as u32, rt as u32);
+	let mut enc = png::Encoder::new(file, width as u32, height as u32);
 	enc.set_color(png::ColorType::Grayscale);
-	enc.set_depth(png::BitDepth::Eight);
+	enc.set_depth(png::BitDepth::Sixteen);
 	let mut writer = enc.write_header().unwrap();
-	writer.write_image_data(&data[..rt * rt]).unwrap();
+	writer
+		.write_image_data(&data[rt * 3..(rt * 3) + pixels * 2])
+		.unwrap();
 }
 
 struct LightHeader {
