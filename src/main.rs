@@ -23,6 +23,8 @@ fn main() {
 	//AHHH it does not seem the combined legth or header length are correct? it seems like nonsense?
 	//drat. we'll know when I try and parse the message I think I extracted. 1510 bytes seems too
 	//small almost.
+	//the thing that makes me suspicious, and think it's right, is that the reserved are all 0x00
+	//and then the next byte is data, so.
 	println!("\nMagic: {magic_number}\nCombined Length: {combined_length}\nHeader Length: {header_length}\nMessage Length: {message_length}\nKind: {kind}\nReserved: {reserved:?}\nNext 8 Bytes: {:?}", &data[0..8]);
 
 	let message = &data[..message_length as usize];
