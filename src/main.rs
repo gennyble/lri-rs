@@ -1,4 +1,4 @@
-use std::{fs::File, path::Path};
+use std::{fs::File, io::Write, os::unix::prelude::FileExt, path::Path};
 
 use lri_rs::Message;
 use png::{BitDepth, ColorType};
@@ -81,7 +81,40 @@ fn main() {
 	}
 
 	println!("\nDumping header info..");
-	heads.iter().for_each(|h| h.header.nice_info())
+	heads.iter().for_each(|h| h.header.print_info());
+
+	println!("\nWriting large ones to disk!");
+	for (idx, head) in heads.iter().enumerate() {
+		if head.header.header_length > 1024 * 1024 {
+			// I guess we only care if it's at least a megabyte
+			let name = format!("{idx}.lri_part");
+			let mut file = File::create(&name).unwrap();
+			file.write_all(&data[head.start..head.end]).unwrap();
+			println!(
+				"Wrote {:.2}MB to disk as {name}",
+				head.header.combined_length as f32 / (1024.0 * 1024.0)
+			);
+		}
+
+		if idx == 2 {
+			let data = &data[head.start + 32..head.end];
+
+			let mut first = vec![0; data.len() / 2];
+			let mut second = vec![0; data.len() / 2];
+			for (idx, chnk) in data.chunks(2).enumerate() {
+				first[idx] = chnk[0];
+				second[idx] = chnk[0];
+			}
+
+			let name = format!("{idx}_first.lri_part");
+			let mut file = File::create(&name).unwrap();
+			file.write_all(&first).unwrap();
+
+			let name = format!("{idx}_second.lri_part");
+			let mut file = File::create(&name).unwrap();
+			file.write_all(&second).unwrap();
+		}
+	}
 }
 
 fn make_png<P: AsRef<Path>>(

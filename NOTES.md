@@ -60,3 +60,13 @@ So I looked through the file for the magic number LELR. It was found fifteen tim
 I assumed some would be false positives, it's only four bytes!, so I had a good idea
 for once! I looked at the 7 bytes that were offset 21 from the end of the magic number.
 In the header, these should be reserved: all null. It matched 10 times and failed 5!
+
+# Found some RAW data!!!!
+## 2023-06-08 00:37 CST
+tired, need sleep.
+- no "lost data"; all data is held by a LightHeader
+- it appears sometimes the length fields move around in `header_length` *(which is indeed sometimes set to the header length)* and the message length
+- lak was able to use SourceExplorer to figure out that, yeah, the data really is right after the LightHeader.
+- **thank you**
+- it appears to be 14bpp packed *(for wall.lri at least)*. the `camera_module.proto` has this as one of the raw options. we should make it a priority to find and parse this.
+- yay
