@@ -11,6 +11,7 @@ fn main() {
 	println!("Read {:.2}MB", data.len() as f32 / (1024.0 * 1024.0));
 
 	let header = LightHeader::new(&data[0..32]);
+	let whole_data = &data;
 	let data = &data[32..];
 
 	let LightHeader {
@@ -35,11 +36,45 @@ fn main() {
 	//let asdf = lri_rs::LightHeader::parse_from_bytes(&data).unwrap();
 	//println!("{:?}", asdf.get_image_time_stamp());
 
+	// The camera says wall.lri was taken Jun 7, 2023 at 07:14 PM. Perhaps I can search the data for this
+	// to try and find a reference
+	// Used protobufpal.com to make this so i can look for it. it's the year/month/day of the date
+	let looking = [
+		0x08, 0xe7, 0x0f, 0x10, 0x06, 0x18, 0x07, 0x20, 0x13, 0x28, 0x0e,
+	];
+
 	println!("\nTook Message of {message_length} bytes");
 	println!("{} bytes left", data.len());
 
+	println!("\nLooking for timestamp...");
+
+	for idx in 0..data.len() - looking.len() {
+		if &data[idx..idx + looking.len()] == looking.as_slice() {
+			println!("Found! Offset {idx}");
+		}
+	}
+
+	let magic_id = [76, 69, 76, 82];
+	let magic_id_skip = 21;
+	let reserved = [0, 0, 0, 0, 0, 0, 0];
+	let look_length = magic_id.len() + magic_id_skip + reserved.len();
+
+	println!("\nLooking for LELR");
+	for idx in 0..whole_data.len() - look_length {
+		if &whole_data[idx..idx + magic_id.len()] == magic_id.as_slice() {
+			print!("Found! Offset {idx} - ");
+
+			let reserved_start = idx + magic_id.len() + magic_id_skip;
+			if &whole_data[reserved_start..reserved_start + reserved.len()] == reserved.as_slice() {
+				println!("Reserved matched!");
+			} else {
+				println!("No reserve match :(");
+			}
+		}
+	}
+
 	let rt = (data.len() as f32 / 2.0).sqrt().floor() as usize;
-	println!("{} png", rt * rt);
+	println!("\n{} png", rt * rt);
 
 	println!("{:?}", &data[0..32]);
 
