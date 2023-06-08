@@ -38,7 +38,25 @@ fn main() {
 		}
 	}
 
+	let ar835 = 3264 * 2448;
+	let ar835_6mp = 3264 * 1836;
+	let ar1335 = 4208 * 3120;
+	let imx386 = 4032 * 3024;
+
+	let known_res = vec![ar835, ar835_6mp, ar1335, imx386];
+
 	println!("\nFound {} LightHeaders", heads.len());
+
+	println!("\nLooking for known resolutions!");
+	for (idx, head) in heads.iter().enumerate() {
+		for res in &known_res {
+			if head.header.header_length == *res {
+				println!("KNOWN RES: {}", idx);
+			}
+		}
+	}
+
+	println!("\nChecking if there is outlying data...");
 	for idx in 1..heads.len() {
 		let this = &heads[idx];
 		let before = &heads[idx - 1];
@@ -61,6 +79,9 @@ fn main() {
 	} else {
 		println!("File has no extraneous data at the end!");
 	}
+
+	println!("\nDumping header info..");
+	heads.iter().for_each(|h| h.header.nice_info())
 }
 
 fn make_png<P: AsRef<Path>>(
@@ -146,5 +167,21 @@ impl LightHeader {
 		} = self;
 
 		println!("\nMagic: {magic_number}\nCombined Length: {combined_length}\nHeader Length: {header_length}\nMessage Length: {message_length}\nKind: {kind}\nReserved: {reserved:?}");
+	}
+
+	pub fn nice_info(&self) {
+		let LightHeader {
+			magic_number,
+			combined_length,
+			header_length,
+			message_length,
+			kind,
+			reserved,
+		} = self;
+
+		println!(
+			"Content length: {:.2}KB | Kind {kind}",
+			*header_length as f32 / 1024.0
+		);
 	}
 }
