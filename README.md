@@ -33,3 +33,11 @@ The header is 32 bytes long. and goes as follows:
 | 7     | reserved |
 
 and then follows the message which already has a known length
+
+## Image Sensors
+
+| Sensor | Resolutions | Output |
+| - | - | - |
+| AR0835HS | 8 Mp: 3264 × 2448, 6 Mp: 3264 × 1836 | 10−bit Raw, 10−to−8 bit A−Law, 8/6−bit DPCM |
+| AR1335 | 4208 × 3120 | DPCM: 10-8-10, 10-6-10 |
+| IMX386 | 4032 x 3024 | ? |
