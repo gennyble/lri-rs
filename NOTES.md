@@ -72,3 +72,13 @@ tired, need sleep, bullet point for now.
 - yay
 
 [se-dev]: https://github.com/LAK132/SourceExplorer/tree/dev
+
+# lak's really good at things
+## 2023-06-08 09:02 CST
+I'm on a break from work, lol.
+
+While I was asleep, lak worked for like seven hours! lak improved SourceExplorer while unpacking the data and it's very cool.
+For `wall.lri` and in the 2nd bit of sensor data *(block index 3; the third block)*, the data is likely from the AR1335. lak
+was able to get a debayered, but not colour correct, image reading it as RAW_10BIT_PACKED in the BGGR arrangement.
+
+lak was able to get a usuable image with a width of 2080 in source explorer, but says "also it's croped in to 4160 4208". noteably 4160 is 2 * 2080, so I don't know? curious.

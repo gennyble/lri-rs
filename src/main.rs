@@ -1,6 +1,6 @@
 use std::{fs::File, io::Write, os::unix::prelude::FileExt, path::Path};
 
-use lri_rs::Message;
+use lri_rs::{proto::camera_module::CameraModule, Message};
 use png::{BitDepth, ColorType};
 
 // This code is going to be rough. Just trying to parse this using the technique
@@ -40,6 +40,7 @@ fn main() {
 
 	let ar835 = 3264 * 2448;
 	let ar835_6mp = 3264 * 1836;
+	let ar1335_crop = 4160 * 3120;
 	let ar1335 = 4208 * 3120;
 	let imx386 = 4032 * 3024;
 
@@ -81,9 +82,10 @@ fn main() {
 	}
 
 	println!("\nDumping header info..");
-	heads.iter().for_each(|h| h.header.print_info());
+	heads.iter().for_each(|h| h.header.nice_info());
 
-	println!("\nWriting large ones to disk!");
+	println!("\nWriting large ones to disk and collecting the smalls!");
+	let mut small: Vec<u8> = vec![];
 	for (idx, head) in heads.iter().enumerate() {
 		if head.header.header_length > 1024 * 1024 {
 			// I guess we only care if it's at least a megabyte
@@ -94,27 +96,79 @@ fn main() {
 				"Wrote {:.2}MB to disk as {name}",
 				head.header.combined_length as f32 / (1024.0 * 1024.0)
 			);
-		}
-
-		if idx == 2 {
-			let data = &data[head.start + 32..head.end];
-
-			let mut first = vec![0; data.len() / 2];
-			let mut second = vec![0; data.len() / 2];
-			for (idx, chnk) in data.chunks(2).enumerate() {
-				first[idx] = chnk[0];
-				second[idx] = chnk[0];
-			}
-
-			let name = format!("{idx}_first.lri_part");
-			let mut file = File::create(&name).unwrap();
-			file.write_all(&first).unwrap();
-
-			let name = format!("{idx}_second.lri_part");
-			let mut file = File::create(&name).unwrap();
-			file.write_all(&second).unwrap();
+		} else {
+			small.extend(&data[head.start..head.end]);
 		}
 	}
+
+	let mut file = File::create("small.lri_part").unwrap();
+	file.write_all(&small).unwrap();
+	println!(
+		"Wrote {:.2}MB to disk as small.lri_part",
+		small.len() as f32 / (1024.0 * 1024.0)
+	);
+
+	let stamp = [
+		08, 0xe7, 0x0f, 0x10, 0x06, 0x18, 0x07, 0x20, 0x13, 0x28, 0x0e,
+	];
+	println!("\nLooking for timestamps!");
+	for (idx, head) in find_pattern(&heads, &data, &stamp) {
+		println!("Found stamp in {idx}");
+	}
+
+	println!("\nAttemtping to parse data after first image in 2");
+	let head = &heads[2];
+	let start = head.start + (ar1335_crop as f32 * 2.5).ceil() as usize;
+	let after_image = &data[start..start + 4352];
+	let proto = match lri_rs::proto::lightheader::LightHeader::parse_from_bytes(after_image) {
+		Ok(_) => println!("Success?!?!?!"),
+		Err(e) => println!("Failed {e}"),
+	};
+
+	println!("Eight before: {:?}", &data[start - 8..start]);
+	println!("Eight in: {:?}", &data[start..start + 8]);
+
+	println!("\nDumping the Message of idx 1");
+	dump_body(&heads[4], &data, "msg4.lri_part");
+
+	let msg = body(&heads[4], &data);
+	let proto = match lri_rs::proto::lightheader::LightHeader::parse_from_bytes(msg) {
+		Ok(data) => {
+			println!("Success?!?!?!");
+			println!("{data:?}");
+		}
+		Err(e) => println!("Failed {e}"),
+	};
+}
+
+fn dump_body(head: &HeaderAndOffset, data: &[u8], path: &str) {
+	let msg = body(head, data);
+	let mut file = File::create(&path).unwrap();
+	file.write_all(msg).unwrap();
+	println!("Wrote {:.2}KB to disk as {path}", msg.len() as f32 / 1024.0);
+}
+
+fn body<'a>(head: &HeaderAndOffset, data: &'a [u8]) -> &'a [u8] {
+	&data[head.start + head.header.header_length as usize
+		..head.start + head.header.header_length as usize + head.header.message_length as usize]
+}
+
+fn find_pattern<'a>(
+	heads: &'a [HeaderAndOffset],
+	data: &[u8],
+	pattern: &[u8],
+) -> Vec<(usize, &'a HeaderAndOffset)> {
+	let mut finds = vec![];
+
+	for (head_idx, head) in heads.iter().enumerate() {
+		for idx in head.start..head.end - pattern.len() {
+			if &data[idx..idx + pattern.len()] == pattern {
+				finds.push((head_idx, head));
+			}
+		}
+	}
+
+	finds
 }
 
 fn make_png<P: AsRef<Path>>(
@@ -143,6 +197,7 @@ fn make_png<P: AsRef<Path>>(
 	writer.write_image_data(&data[..pix * bpp]).unwrap();
 }
 
+#[derive(Clone, Debug)]
 struct HeaderAndOffset {
 	header: LightHeader,
 	// Inclusive
@@ -151,6 +206,7 @@ struct HeaderAndOffset {
 	end: usize,
 }
 
+#[derive(Clone, Debug)]
 struct LightHeader {
 	magic_number: String,
 	combined_length: u64,
