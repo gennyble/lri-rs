@@ -1,7 +1,14 @@
 use std::{fs::File, io::Write, os::unix::prelude::FileExt, path::Path};
 
 use lri_rs::{proto::camera_module::CameraModule, Message};
+use nalgebra::Matrix3;
 use png::{BitDepth, ColorType};
+use rawloader::CFA;
+use rawproc::{
+	colorspace::BayerRgb,
+	image::{Image, RawMetadata},
+};
+use unpacker::Unpacker;
 
 // This code is going to be rough. Just trying to parse this using the technique
 // I know: just play with the raw data
@@ -103,7 +110,7 @@ fn main() {
 			let mut file = File::create(&name).unwrap();
 			file.write_all(&data[head.start..head.end]).unwrap();
 			println!(
-				"Wrote {:.2}MB to disk as {name}",
+				"\nWrote {:.2}MB to disk as {name}",
 				head.header.combined_length as f32 / (1024.0 * 1024.0)
 			);
 			head.header.print_info();
@@ -127,19 +134,58 @@ fn main() {
 		println!("Found stamp in {idx}");
 	}
 
-	println!("\nAttemtping to parse data after first image in 2");
-	let head = &heads[2];
-	let start = head.start + (ar1335_crop as f32 * 2.5).ceil() as usize;
-	let after_image = &data[start..start + 4352];
-	let proto = match lri_rs::proto::lightheader::LightHeader::parse_from_bytes(after_image) {
-		Ok(_) => println!("Success?!?!?!"),
-		Err(e) => println!("Failed {e}"),
-	};
+	println!("\nAttemtping to unpack image in idx2");
+	let msg = body(&heads[2], &data);
+	let mut up = Unpacker::new();
+	for idx in 0..16224000 {
+		up.push(msg[idx]);
+	}
+	up.finish();
 
-	println!("Eight before: {:?}", &data[start - 8..start]);
-	println!("Eight in: {:?}", &data[start..start + 8]);
+	let mut imgdata = vec![];
+	for chnk in up.out.chunks(2) {
+		let sixteen = ((u16::from_le_bytes([chnk[0], chnk[1]]) as f32 / 1024.0) * 255.0) as u8;
+		imgdata.push(sixteen.min(255));
+	}
 
-	println!("\nDumping the Message of idx 1");
+	let rawimg: Image<u8, BayerRgb> = Image::from_raw_parts(
+		4160,
+		3120,
+		RawMetadata {
+			whitebalance: [1.0, 1.0, 1.0],
+			whitelevels: [1024, 1024, 1024],
+			crop: None,
+			cfa: CFA::new("BGGR"),
+			cam_to_xyz: Matrix3::new(1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0),
+		},
+		imgdata,
+	);
+	let img = rawimg.debayer();
+
+	make_png(
+		"image.png",
+		4160,
+		3120,
+		ColorType::Rgb,
+		BitDepth::Eight,
+		&img.data,
+	);
+
+	let msg = &msg[16224000..];
+	dump(msg, "afterimg2");
+	let question = &msg[..4352];
+	let next = &msg[4352..];
+
+	println!(
+		"Up out is {} bytes. Expecte {}. Difference {} [work: {:0b} - idx {}]",
+		up.out.len(),
+		ar1335_crop * 2,
+		up.out.len() as isize - (ar1335_crop * 2) as isize,
+		up.work,
+		up.work_idx
+	);
+
+	println!("\nDumping the Message of idx 4");
 	dump_body(&heads[4], &data, "msg4.lri_part");
 
 	let mut modules = vec![];
@@ -197,14 +243,25 @@ fn main() {
 
 fn dump_body(head: &HeaderAndOffset, data: &[u8], path: &str) {
 	let msg = body(head, data);
+	dump(msg, path)
+}
+
+fn dump(data: &[u8], path: &str) {
 	let mut file = File::create(&path).unwrap();
-	file.write_all(msg).unwrap();
-	println!("Wrote {:.2}KB to disk as {path}", msg.len() as f32 / 1024.0);
+	file.write_all(data).unwrap();
+	println!(
+		"Wrote {:.2}KB to disk as {path}",
+		data.len() as f32 / 1024.0
+	);
 }
 
 fn body<'a>(head: &HeaderAndOffset, data: &'a [u8]) -> &'a [u8] {
-	&data[head.start + head.header.header_length as usize
-		..head.start + head.header.header_length as usize + head.header.message_length as usize]
+	if head.header.header_length == 32 {
+		&data[head.start + head.header.header_length as usize
+			..head.start + head.header.header_length as usize + head.header.message_length as usize]
+	} else {
+		&data[head.start + 32..head.end]
+	}
 }
 
 fn find_pattern<'a>(
@@ -243,7 +300,7 @@ fn make_png<P: AsRef<Path>>(
 
 	let pix = width * height;
 
-	let file = File::create("ahh.png").unwrap();
+	let file = File::create(path).unwrap();
 	let mut enc = png::Encoder::new(file, width as u32, height as u32);
 	enc.set_color(color);
 	enc.set_depth(depth);
@@ -309,7 +366,7 @@ impl LightHeader {
 			reserved,
 		} = self;
 
-		println!("\nMagic: {magic_number}\nCombined Length: {combined_length}\nHeader Length: {header_length}\nMessage Length: {message_length}\nKind: {kind}\nReserved: {reserved:?}");
+		println!("Magic: {magic_number}\nCombined Length: {combined_length}\nHeader Length: {header_length}\nMessage Length: {message_length}\nKind: {kind}\nReserved: {reserved:?}");
 	}
 
 	pub fn nice_info(&self) {
