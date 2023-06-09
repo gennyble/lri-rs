@@ -17,6 +17,7 @@ fn main() {
 	let look_length = magic_id.len() + magic_id_skip + reserved.len();
 
 	let mut heads = vec![];
+	let mut skeptical_heads = vec![];
 
 	println!("\nLooking for LELR");
 	for idx in 0..data.len() - look_length {
@@ -34,6 +35,12 @@ fn main() {
 				heads.push(HeaderAndOffset { header, start, end });
 			} else {
 				println!("No reserve match :(");
+
+				let header = LightHeader::new(&data[idx..]);
+				let start = idx;
+				let end = start + header.combined_length as usize;
+
+				skeptical_heads.push(HeaderAndOffset { header, start, end });
 			}
 		}
 	}
@@ -84,6 +91,9 @@ fn main() {
 	println!("\nDumping header info..");
 	heads.iter().for_each(|h| h.header.nice_info());
 
+	println!("\nDumping skeptical header info..");
+	skeptical_heads.iter().for_each(|h| h.header.bin_info());
+
 	println!("\nWriting large ones to disk and collecting the smalls!");
 	let mut small: Vec<u8> = vec![];
 	for (idx, head) in heads.iter().enumerate() {
@@ -96,6 +106,7 @@ fn main() {
 				"Wrote {:.2}MB to disk as {name}",
 				head.header.combined_length as f32 / (1024.0 * 1024.0)
 			);
+			head.header.print_info();
 		} else {
 			small.extend(&data[head.start..head.end]);
 		}
@@ -131,14 +142,57 @@ fn main() {
 	println!("\nDumping the Message of idx 1");
 	dump_body(&heads[4], &data, "msg4.lri_part");
 
-	let msg = body(&heads[4], &data);
-	let proto = match lri_rs::proto::lightheader::LightHeader::parse_from_bytes(msg) {
-		Ok(data) => {
-			println!("Success?!?!?!");
-			println!("{data:?}");
+	let mut modules = vec![];
+	let mut sensor_data = vec![];
+
+	for (idx, head) in heads.iter().enumerate() {
+		print!("Head {idx} - ");
+		let msg = body(head, &data);
+
+		match (head.header.header_length == 32, head.header.kind) {
+			(true, 1) => {
+				match lri_rs::proto::view_preferences::ViewPreferences::parse_from_bytes(msg) {
+					Ok(_) => println!("View Preferences: Parsed"),
+					Err(e) => println!("View Preferences, failed: {e}"),
+				}
+			}
+			(true, 0) => match lri_rs::proto::lightheader::LightHeader::parse_from_bytes(msg) {
+				Ok(data) => {
+					let mods = &data.modules;
+					let datas = &data.sensor_data;
+
+					print!(
+						" [claimed: {} | actual: {}] - ",
+						head.header.message_length,
+						data.compute_size()
+					);
+
+					println!(
+						"LightHeader! Modules: {} - Datas: {} \\ ModCal: {}",
+						mods.len(),
+						datas.len(),
+						data.module_calibration.len()
+					);
+					modules.extend_from_slice(&mods);
+					sensor_data.extend_from_slice(&datas);
+
+					if false && data.module_calibration.len() > 0 {
+						for modc in data.module_calibration {
+							print!(" - {:?}", modc.get_camera_id());
+						}
+						println!("");
+					}
+				}
+				Err(e) => println!("LightHeader, failed: {e}"),
+			},
+			(true, _) => {
+				println!("Unknown header kind and header_length is 32, skipping...");
+			}
+			(false, _) => {
+				println!("SensorData! Skipping for now...");
+			}
 		}
-		Err(e) => println!("Failed {e}"),
-	};
+	}
 }
 
 fn dump_body(head: &HeaderAndOffset, data: &[u8], path: &str) {
@@ -272,5 +326,18 @@ impl LightHeader {
 			"Content length: {:.2}KB | Kind {kind}",
 			*header_length as f32 / 1024.0
 		);
+	}
+
+	pub fn bin_info(&self) {
+		let LightHeader {
+			magic_number,
+			combined_length,
+			header_length,
+			message_length,
+			kind,
+			reserved,
+		} = self;
+
+		println!("{magic_number} {:b}", combined_length);
 	}
 }

@@ -82,3 +82,25 @@ For `wall.lri` and in the 2nd bit of sensor data *(block index 3; the third bloc
 was able to get a debayered, but not colour correct, image reading it as RAW_10BIT_PACKED in the BGGR arrangement.
 
 lak was able to get a usuable image with a width of 2080 in source explorer, but says "also it's croped in to 4160 4208". noteably 4160 is 2 * 2080, so I don't know? curious.
+
+# Data Data Data Data Data Data
+## 2023-06-08 22:41 CST
+I now know what lak was talking about. lak was debayering by just cramming the 2x2 BGGR area into one pixel, therefore loosing half
+the width. from laks experience the height was unaffected? but it works! so the width *is* 4160. Which apparently is cropped ar1135.
+I was able to confirm that by finding the bloody sensor data! The `sensor_data.proto` anyway.
+
+### What We Know So Far
+- File made up of blocks of data. Each block starts with a header that, in the decompiled java code *(and mine, currently)*,
+is called `LightHeader`. I will call this the **DataHeader** from here on out as suggested by helloavo. It is described below.
+- If the header length of the DataHeader is not 32, we interpret this as sensor data. Following the header starts the raw bayer data. It's likely to be packed bits. Either 10, 12, or 14. *(as per `camera_module.proto`)*. The example file we've been using is 10-but packed. It's also 4160 by 3120 which corresponds to a cropped image from the ar1335 sensor.
+
+#### DataHeader *(A.K.A. LightHeader from the Java Code)*
+The header is 32 bytes long. and goes as follows:  
+| bytes | meaning |
+| ----- | ------- |
+| 4     | Magic Number: "LELR" |
+| 8     | Combined Length (total length including this header) |
+| 8     | header length (32) **OR** message length |
+| 4     | message length **OR** unknown |
+| 1     | message type. 0 for `LightHeader` *(as described in lightheader.proto)* or 1 for `view_preferences.proto` |
+| 7     | reserved |

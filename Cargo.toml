@@ -8,3 +8,4 @@ edition = "2021"
 [dependencies]
 png = "0.17.8"
 lri-rs = { path = "../lri-rs" }
+bitvec = "1.0.1"
