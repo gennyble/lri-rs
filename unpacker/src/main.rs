@@ -13,12 +13,19 @@ fn main() {
 		work_idx: 0,
 	};
 
+	let count = (10.0 as f32 * (10.0 / 8.0)).ceil() as usize;
 	for byte in testdata {
 		up.push(byte);
+
+		if count == up.out.len() {
+			break;
+		}
 	}
-	up.finish();
+	if count > up.out.len() {
+		up.finish();
+	}
 
 	for chnk in up.out.chunks(2) {
-		println!("{:08b} {:08b}", chnk[0], chnk[1]);
+		println!("{:02b} {:08b}", chnk[1], chnk[0]);
 	}
 }

@@ -135,17 +135,33 @@ fn main() {
 	}
 
 	println!("\nAttemtping to unpack image in idx2");
-	let msg = body(&heads[2], &data);
+	let head = &heads[1];
+	let msg = body(head, &data);
 	let mut up = Unpacker::new();
-	for idx in 0..16224000 {
+	for idx in (0..16224000).rev() {
 		up.push(msg[idx]);
 	}
 	up.finish();
 
+	dump(&msg[..16224000], "fordatadog.packed");
+
 	let mut imgdata = vec![];
-	for chnk in up.out.chunks(2) {
-		let sixteen = ((u16::from_le_bytes([chnk[0], chnk[1]]) as f32 / 1024.0) * 255.0) as u8;
-		imgdata.push(sixteen.min(255));
+	for (idx, chnk) in up.out.chunks(2).enumerate() {
+		let mut sixteen = (u16::from_le_bytes([chnk[0], chnk[1]]) as f32 / 1024.0) * 255.0;
+
+		// Bad bayer to grayscale (color corrrect)
+		/*let row = idx / 4160;
+		if row % 2 == 0 {
+			if idx % 2 == 0 {
+				sixteen *= 1.35;
+			}
+		} else {
+			if idx % 2 == 1 {
+				sixteen *= 1.95;
+			}
+		}*/
+
+		imgdata.push(sixteen.min(255.0) as u8);
 	}
 
 	let rawimg: Image<u8, BayerRgb> = Image::from_raw_parts(
@@ -153,14 +169,19 @@ fn main() {
 		3120,
 		RawMetadata {
 			whitebalance: [1.0, 1.0, 1.0],
-			whitelevels: [1024, 1024, 1024],
+			whitelevels: [512, 1024, 768],
 			crop: None,
 			cfa: CFA::new("BGGR"),
 			cam_to_xyz: Matrix3::new(1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0),
 		},
-		imgdata,
+		imgdata.clone(),
 	);
-	let img = rawimg.debayer();
+	let mut img = rawimg.debayer();
+
+	for px in img.data.chunks_mut(3) {
+		px[0] = (px[0] as f32 * 1.95).min(255.0) as u8;
+		px[2] = (px[2] as f32 * 1.36).min(255.0) as u8;
+	}
 
 	make_png(
 		"image.png",
@@ -171,8 +192,14 @@ fn main() {
 		&img.data,
 	);
 
-	let msg = &msg[16224000..];
+	let msg = &msg[16224000..16224000 + head.header.message_length as usize];
 	dump(msg, "afterimg2");
+
+	match lri_rs::proto::camera_module::CameraModule::parse_from_bytes(msg) {
+		Ok(o) => println!("parsed"),
+		Err(e) => println!("failed {e}"),
+	}
+
 	let question = &msg[..4352];
 	let next = &msg[4352..];
 
@@ -231,8 +258,8 @@ fn main() {
 				}
 				Err(e) => println!("LightHeader, failed: {e}"),
 			},
-			(true, _) => {
-				println!("Unknown header kind and header_length is 32, skipping...");
+			(true, knd) => {
+				println!("Unknown header kind [{knd}] and header_length is 32, skipping...");
 			}
 			(false, _) => {
 				println!("SensorData! Skipping for now...");
