@@ -2,5 +2,8 @@
 *.png
 *.lri_part
 
+# MacOS you exhaust me. Leave me alone
+**/.DS_Store
+
 fordatadog.packed
 afterimg2

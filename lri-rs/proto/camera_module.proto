@@ -1,0 +1,67 @@
+syntax = "proto2";
+
+package ltpb;
+
+import "camera_id.proto";
+import "point2i.proto";
+import "point2f.proto";
+
+message CameraModule {
+    optional AFInfo af_info = 1;
+    message AFInfo {
+        required AFMode mode = 1;
+        enum AFMode {
+            AUTO = 0;
+        }
+        
+        optional Point2F roi_center = 2;
+        optional float disparity_focus_distance = 3;
+        optional float contrast_focus_distance = 4;
+        optional bool lens_timeout = 5;
+        optional bool mirror_timeout = 6;
+        optional int32 mirror_position = 7;
+    }
+    
+    required CameraID id = 2;
+    optional bool is_enabled = 3 [default = true];
+    optional int32 mirror_position = 4 [default = 0];
+    required int32 lens_position = 5;
+    required float sensor_analog_gain = 7;
+    required uint64 sensor_exposure = 8;
+    
+    required Surface sensor_data_surface = 9;
+    message Surface {
+        required Point2I start = 1;
+        required Point2I size = 2;
+        
+        required FormatType format = 3;
+        enum FormatType {
+            RAW_BAYER_JPEG = 0;
+            RAW_RESERVED_0 = 1;
+            RAW_RESERVED_1 = 2;
+            RAW_RESERVED_2 = 3;
+            RAW_RESERVED_3 = 4;
+            RAW_RESERVED_4 = 5;
+            RAW_RESERVED_5 = 6;
+            RAW_PACKED_10BPP = 7;
+            RAW_PACKED_12BPP = 8;
+            RAW_PACKED_14BPP = 9;
+        }
+        
+        required uint32 row_stride = 4;
+        required uint64 data_offset = 5;
+        optional Point2F data_scale = 6;
+    }
+    
+    optional sint32 sensor_temparature = 10;
+    optional bool sensor_is_horizontal_flip = 11 [default = false];
+    optional bool sensor_is_vertical_flip = 12 [default = false];
+    optional Point2I sensor_bayer_red_override = 13;
+    optional float sensor_digital_gain = 14;
+    optional uint32 frame_index = 15;
+    optional bool sensor_dpc_on = 16 [default = true];
+    optional sint32 sensor_exp_start_offset = 17;
+    optional float sensor_scan_speed = 18;
+    
+    reserved 6;
+}

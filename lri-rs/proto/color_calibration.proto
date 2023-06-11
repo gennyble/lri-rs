@@ -1,0 +1,47 @@
+syntax = "proto2";
+
+package ltpb;
+
+import "matrix3x3f.proto";
+import "point3f.proto";
+import "point2f.proto";
+
+message ColorCalibration {
+    required IlluminantType type = 1;
+    enum IlluminantType {
+        A = 0;
+        D50 = 1;
+        D65 = 2;
+        D75 = 3;
+        F2 = 4;
+        F7 = 5;
+        F11 = 6;
+        TL84 = 7;
+        UNKNOWN = 99;
+    }
+    
+    required Matrix3x3F forward_matrix = 2;
+    required Matrix3x3F color_matrix = 3;
+    required float rg_ratio = 4;
+    required float bg_ratio = 5;
+    repeated Point3F macbeth_data = 6;
+    repeated Point2F illuminant_spd = 7;
+    
+    optional SpectralData spectral_data = 8;
+    message SpectralData {
+        required ChannelFormat format = 1;
+        enum ChannelFormat {
+            MONO = 0;
+            RGB = 1;
+            BAYER_RGGB = 2;
+        }
+        
+        repeated SpectralSensitivity channel_data = 2;
+    }
+    
+    message SpectralSensitivity {
+        required uint32 start = 1;
+        required uint32 end = 2;
+        repeated float data = 3 [packed = true];
+    }
+}

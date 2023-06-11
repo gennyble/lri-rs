@@ -1,0 +1,26 @@
+syntax = "proto2";
+
+package ltpb;
+
+message SensorCharacterization {
+    required float black_level = 1;
+    required float white_level = 2;
+    optional float cliff_slope = 3;
+    
+    repeated VstNoiseModel vst_model = 4;
+    message VstNoiseModel {
+        required uint32 gain = 1;
+        required float threshold = 2;
+        required float scale = 3;
+        
+        required VstModel red = 4;
+        message VstModel {
+            required float a = 1;
+            required float b = 2;
+        }
+        
+        required VstModel green = 5;
+        required VstModel blue = 6;
+        optional VstModel panchromatic = 7;
+    }
+}

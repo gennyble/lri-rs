@@ -1,0 +1,30 @@
+syntax = "proto2";
+
+package ltpb;
+
+import "matrix4x4f.proto";
+
+message VignettingCharacterization {
+    required CrosstalkModel crosstalk = 1;
+    message CrosstalkModel {
+        required uint32 width = 1;
+        required uint32 height = 2;
+        repeated Matrix4x4F data = 3;
+        repeated float data_packed = 4 [packed = true];
+    }
+    
+    repeated MirrorVignettingModel vignetting = 2;
+    message MirrorVignettingModel {
+        required int32 hall_code = 1;
+        required VignettingModel vignetting = 2;
+    }
+    
+    optional float relative_brightness = 3;
+    optional int32 lens_hall_code = 4;
+    
+    message VignettingModel {
+        required uint32 width = 1;
+        required uint32 height = 2;
+        repeated float data = 3 [packed = true];
+    }
+}

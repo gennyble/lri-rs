@@ -1,0 +1,22 @@
+syntax = "proto2";
+
+package ltpb;
+
+message Matrix4x4F {
+    required float x00 = 1;
+    required float x01 = 2;
+    required float x02 = 3;
+    required float x03 = 4;
+    required float x10 = 5;
+    required float x11 = 6;
+    required float x12 = 7;
+    required float x13 = 8;
+    required float x20 = 9;
+    required float x21 = 10;
+    required float x22 = 11;
+    required float x23 = 12;
+    required float x30 = 13;
+    required float x31 = 14;
+    required float x32 = 15;
+    required float x33 = 16;
+}

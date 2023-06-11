@@ -1,0 +1,17 @@
+syntax = "proto2";
+
+package ltpb;
+
+import "point3f.proto";
+
+message IMUData {
+    required uint32 frame_index = 1;
+    
+    repeated Sample accelerometer = 2;
+    message Sample {
+        required uint32 row_idx = 1;
+        required Point3F data = 2;
+    }
+    
+    repeated Sample gyroscope = 3;
+}

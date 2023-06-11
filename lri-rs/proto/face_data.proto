@@ -1,0 +1,18 @@
+syntax = "proto2";
+
+package ltpb;
+
+import "camera_id.proto";
+import "rectanglei.proto";
+
+message FaceData {
+    required CameraID id = 1;
+    required uint32 frame_index = 2;
+    
+    repeated ROI rois = 3;
+    message ROI {
+        optional uint32 id = 1;
+        optional RectangleI roi = 2;
+        optional float confidence = 3;
+    }
+}

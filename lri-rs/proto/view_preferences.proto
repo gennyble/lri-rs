@@ -1,0 +1,94 @@
+syntax = "proto2";
+
+package ltpb;
+
+import "point2f.proto";
+
+message ViewPreferences {
+    optional float f_number = 1;
+    optional float ev_offset = 2;
+    optional bool disable_cropping = 3;
+    
+    optional HDRMode hdr_mode = 4;
+    enum HDRMode {
+        HDR_MODE_NONE = 0;
+        HDR_MODE_DEFAULT = 1;
+        HDR_MODE_NATURAL = 2;
+        HDR_MODE_SURREAL = 3;
+    }
+    
+    optional ViewPresets view_preset = 5;
+    enum ViewPresets {
+        VIEW_PRESET_NONE = 0;
+        VIEW_PRESET_NATURAL = 1;
+        VIEW_PRESET_FAITHFUL = 2;
+        VIEW_PRESET_LANDSCAPE = 3;
+        VIEW_PRESET_PORTRAIT = 4;
+    }
+    
+    optional SceneMode scene_mode = 6;
+    enum SceneMode {
+        SCENE_MODE_PORTRAIT = 0;
+        SCENE_MODE_LANDSCAPE = 1;
+        SCENE_MODE_SPORT = 2;
+        SCENE_MODE_MACRO = 3;
+        SCENE_MODE_NIGHT = 4;
+        SCENE_MODE_NONE = 5;
+    }
+    
+    optional AWBMode awb_mode = 7;
+    enum AWBMode {
+        AWB_MODE_AUTO = 0;
+        AWB_MODE_DAYLIGHT = 1;
+        AWB_MODE_SHADE = 2;
+        AWB_MODE_CLOUDY = 3;
+        AWB_MODE_TUNGSTEN = 4;
+        AWB_MODE_FLUORESCENT = 5;
+        AWB_MODE_FLASH = 6;
+        AWB_MODE_CUSTOM = 7;
+        AWB_MODE_KELVIN = 8;
+    }
+    
+    optional Orientation orientation = 9;
+    enum Orientation {
+        ORIENTATION_NORMAL = 0;
+        ORIENTATION_ROT90_CW = 1;
+        ORIENTATION_ROT90_CCW = 2;
+        ORIENTATION_ROT90_CW_VFLIP = 3;
+        ORIENTATION_ROT90_CCW_VFLIP = 4;
+        ORIENTATION_VFLIP = 5;
+        ORIENTATION_HFLIP = 6;
+        ORIENTATION_ROT180 = 7;
+    }
+    
+    optional float image_gain = 10;
+    optional uint64 image_integration_time_ns = 11;
+    optional uint32 user_rating = 12;
+    
+    optional AspectRatio aspect_ratio = 13;
+    enum AspectRatio {
+        ASPECT_RATIO_4_3 = 0;
+        ASPECT_RATIO_16_9 = 1;
+    }
+    
+    optional Crop crop = 14;
+    message Crop {
+        required Point2F start = 1;
+        required Point2F size = 2;
+    }
+    
+    optional ChannelGain awb_gains = 15;
+    message ChannelGain {
+        required float r = 1;
+        required float g_r = 2;
+        required float g_b = 3;
+        required float b = 4;
+    }
+    
+    optional bool is_on_tripod = 16;
+    optional float qc_lux_index = 17;
+    optional float display_gain = 18;
+    optional uint64 display_integration_time_ns = 19;
+    
+    reserved 8;
+}

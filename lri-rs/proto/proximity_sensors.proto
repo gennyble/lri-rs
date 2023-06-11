@@ -1,0 +1,11 @@
+syntax = "proto2";
+
+package ltpb;
+
+message ProximitySensors {
+    required bool sensor_1 = 1;
+    required bool sensor_2 = 2;
+    required bool sensor_3 = 3;
+    required bool sensor_4 = 4;
+    required bool sensor_5 = 5;
+}

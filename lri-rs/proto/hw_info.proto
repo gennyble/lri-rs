@@ -1,0 +1,64 @@
+syntax = "proto2";
+
+package ltpb;
+
+import "sensor_type.proto";
+import "camera_id.proto";
+
+message CameraModuleHwInfo {
+    required CameraID id = 1;
+    required SensorType sensor = 2;
+    
+    optional LensType lens = 3 [default = LENS_UNKNOWN];
+    enum LensType {
+        LENS_UNKNOWN = 0;
+        LENS_SHOWIN = 1;
+        LENS_LARGAN = 2;
+        LENS_SUNNY = 3;
+        LENS_KANTATSU = 4;
+    }
+    
+    optional MirrorActuatorType mirror_actuator = 4 [default = MIRROR_ACTUATOR_UNKNOWN];
+    enum MirrorActuatorType {
+        MIRROR_ACTUATOR_UNKNOWN = 0;
+        MIRROR_ACTUATOR_PZT = 1;
+    }
+    
+    optional MirrorType mirror = 5 [default = MIRROR_UNKNOWN];
+    enum MirrorType {
+        MIRROR_UNKNOWN = 0;
+        MIRROR_DIELECTRIC_SNX = 1;
+        MIRROR_SILVER_ZUISHO = 2;
+    }
+    
+    enum LensActuatorType {
+        LENS_ACTUATOR_UNKNOWN = 0;
+        LENS_ACTUATOR_SHICOH = 1;
+        LENS_ACTUATOR_PZT = 2;
+    }
+}
+
+message HwInfo {
+    repeated CameraModuleHwInfo camera = 1;
+    
+    optional FlashType flash = 2 [default = FLASH_UNKNOWN];
+    enum FlashType {
+        FLASH_UNKNOWN = 0;
+        FLASH_OSRAM_CBLPM1 = 1;
+    }
+    
+    optional ToFType tof = 3 [default = TOF_UNKNOWN];
+    enum ToFType {
+        TOF_UNKNOWN = 0;
+        TOF_STMICRO_VL53L0 = 1;
+    }
+    
+    optional ModelType model = 4;
+    enum ModelType {
+        MODEL_P1 = 0;
+        MODEL_P1_1 = 1;
+        MODEL_P2 = 2;
+    }
+    
+    optional string manufacturer = 5;
+}

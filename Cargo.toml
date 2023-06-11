@@ -7,7 +7,7 @@ edition = "2021"
 
 [dependencies]
 png = "0.17.8"
-lri-rs = { path = "../lri-rs" }
+lri-rs = { path = "lri-rs" }
 unpacker = { path = "unpacker" }
 rawproc = { git = "https://github.com/eclecticnybles/gaze" }
 rawloader = "0.37.1"

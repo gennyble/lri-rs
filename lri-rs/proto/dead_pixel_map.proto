@@ -1,0 +1,9 @@
+syntax = "proto2";
+
+package ltpb;
+
+message DeadPixelMap {
+    required uint64 data_offset = 1;
+    required uint32 data_size = 2;
+    optional float black_level_threshold = 3;
+}

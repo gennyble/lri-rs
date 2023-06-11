@@ -1,0 +1,64 @@
+syntax = "proto2";
+
+package ltpb;
+
+import "mirror_system.proto";
+import "matrix3x3f.proto";
+import "point3f.proto";
+import "distortion.proto";
+import "range2f.proto";
+import "device_temp.proto";
+import "point2f.proto";
+
+message GeometricCalibration {
+    optional MirrorType mirror_type = 1;
+    enum MirrorType {
+        NONE = 0;
+        GLUED = 1;
+        MOVABLE = 2;
+    }
+    
+    repeated CalibrationFocusBundle per_focus_calibration = 2;
+    message CalibrationFocusBundle {
+        required float focus_distance = 1;
+        optional Intrinsics intrinsics = 2;
+        optional Extrinsics extrinsics = 3;
+        optional sint32 sensor_temp = 4;
+        optional DeviceTemp device_temp = 5;
+        optional float focus_hall_code = 6;
+    }
+    
+    optional Distortion distortion = 3;
+    optional Range2F lens_hall_code_range = 4;
+    optional Range2F focus_distance_range = 5;
+    
+    optional AngleOpticalCenterMapping angle_optical_center_mapping = 6;
+    message AngleOpticalCenterMapping {
+        required Point2F center_start = 1;
+        required Point2F center_end = 2;
+        required float angle_offset = 3;
+        required float t_scale = 4;
+        required float t_offset = 5;
+    }
+    
+    message Intrinsics {
+        required Matrix3x3F k_mat = 1;
+        optional float rms_error = 2;
+    }
+    
+    message Extrinsics {
+        optional CanonicalFormat canonical = 1;
+        message CanonicalFormat {
+            required Matrix3x3F rotation = 1;
+            required Point3F translation = 2;
+            optional float stereo_error = 3;
+            optional float reprojection_error = 4;
+        }
+        
+        optional MovableMirrorFormat moveable_mirror = 2;
+        message MovableMirrorFormat {
+            optional MirrorSystem mirror_system = 1;
+            optional MirrorActuatorMapping mirror_actuator_mapping = 2;
+        }
+    }
+}

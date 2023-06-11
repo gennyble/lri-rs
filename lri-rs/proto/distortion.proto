@@ -1,0 +1,31 @@
+syntax = "proto2";
+
+package ltpb;
+
+import "point2f.proto";
+import "rectanglei.proto";
+
+message Distortion {
+    optional Polynomial polynomial = 1;
+    message Polynomial {
+        required Point2F distortion_center = 1;
+        required Point2F normalization = 2;
+        repeated float coeffs = 3 [packed = true];
+        optional float fit_cost = 4;
+        optional RectangleI valid_roi = 5;
+    }
+    
+    optional CRA cra = 2;
+    message CRA {
+        required Point2F distortion_center = 1;
+        required float sensor_distance = 2;
+        required float exit_pupil_distance = 3;
+        required float pixel_size = 4;
+        repeated Point2F cra = 5;
+        repeated Point2F coeffs = 6;
+        optional float fit_cost = 7;
+        optional RectangleI valid_roi = 8;
+        optional float lens_hall_code = 9;
+        optional float distance_hall_ratio = 10;
+    }
+}

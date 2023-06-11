@@ -1,0 +1,50 @@
+syntax = "proto2";
+
+package ltpb;
+
+import "matrix3x3f.proto";
+import "point3f.proto";
+import "range2f.proto";
+
+message MirrorSystem {
+    required Point3F real_camera_location = 1;
+    required Matrix3x3F real_camera_orientation = 2;
+    required Point3F rotation_axis = 3;
+    required Point3F point_on_rotation_axis = 4;
+    required float distance_mirror_plane_to_point_on_rotation_axis = 5;
+    required Point3F mirror_normal_at_zero_degrees = 6;
+    required bool flip_img_around_x = 7;
+    required Range2F mirror_angle_range = 8;
+    optional float reprojection_error = 9;
+}
+
+message MirrorActuatorMapping {
+    required TransformationType transformation_type = 1;
+    enum TransformationType {
+        MEAN_STD_NORMALIZE = 0;
+        TAN_HALF_THETA = 1;
+    }
+    
+    required float actuator_length_offset = 2;
+    required float actuator_length_scale = 3;
+    required float mirror_angle_offset = 4;
+    required float mirror_angle_scale = 5;
+    
+    repeated ActuatorAnglePair actuator_angle_pair_vec = 6;
+    message ActuatorAnglePair {
+        required int32 hall_code = 1;
+        required float angle = 2;
+    }
+    
+    required QuadraticModel quadratic_model = 7;
+    message QuadraticModel {
+        required bool use_rplus_for_left_segment = 1;
+        required bool use_rplus_for_right_segment = 2;
+        required float inflection_value = 3;
+        repeated float model_coeffs = 4 [packed = true];
+    }
+    
+    optional float angle_to_hall_code_error = 8;
+    optional float hall_code_to_angle_error = 9;
+    optional Range2F hall_code_range = 10;
+}

@@ -1,0 +1,8 @@
+syntax = "proto2";
+
+package ltpb;
+
+message Range2F {
+    required float min_val = 1;
+    required float max_val = 2;
+}

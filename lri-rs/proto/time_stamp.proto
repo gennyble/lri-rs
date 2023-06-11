@@ -1,0 +1,13 @@
+syntax = "proto2";
+
+package ltpb;
+
+message TimeStamp {
+    required uint32 year = 1;
+    required uint32 month = 2;
+    required uint32 day = 3;
+    required uint32 hour = 4;
+    required uint32 minute = 5;
+    required uint32 second = 6;
+    optional sint32 tz_offset = 7;
+}

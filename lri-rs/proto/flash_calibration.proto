@@ -1,0 +1,12 @@
+syntax = "proto2";
+
+package ltpb;
+
+message FlashCalibration {
+    required float ledcool_lux = 1;
+    required float ledcool_max_lumens = 2;
+    required float ledcool_cct = 3;
+    required float ledwarm_lux = 4;
+    required float ledwarm_max_lumens = 5;
+    required float ledwarm_cct = 6;
+}

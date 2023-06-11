@@ -1,0 +1,15 @@
+syntax = "proto2";
+
+package ltpb;
+
+message Matrix3x3F {
+    required float x00 = 1;
+    required float x01 = 2;
+    required float x02 = 3;
+    required float x10 = 4;
+    required float x11 = 5;
+    required float x12 = 6;
+    required float x20 = 7;
+    required float x21 = 8;
+    required float x22 = 9;
+}

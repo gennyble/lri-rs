@@ -1,0 +1,16 @@
+syntax = "proto2";
+
+package ltpb;
+
+message HotPixelMap {
+    repeated HotPixelMeasurement data = 1;
+    message HotPixelMeasurement {
+        required uint64 data_offset = 1;
+        required uint32 data_size = 2;
+        required uint32 data_exposure = 3;
+        required int32 sensor_temparature = 4;
+        required float sensor_gain = 5;
+        optional float pixel_variance = 6;
+        optional float threshold = 7;
+    }
+}

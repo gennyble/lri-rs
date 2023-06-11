@@ -1,0 +1,49 @@
+syntax = "proto2";
+
+package ltpb;
+
+message GPSData {
+    optional double latitude = 1;
+    optional double longitude = 2;
+    optional uint64 timestamp = 3;
+    optional double dop = 4;
+    
+    optional Track track = 5;
+    message Track {
+        required double value = 1;
+        required ReferenceNorth ref = 2;
+    }
+    
+    optional Heading heading = 6;
+    message Heading {
+        required double value = 1;
+        required ReferenceNorth ref = 2;
+    }
+    
+    optional Altitude altitude = 7;
+    message Altitude {
+        required double value = 1;
+        required ReferenceAltitude ref = 2;
+    }
+    
+    optional double speed = 8;
+    
+    optional ProcessingMethod processing_method = 9;
+    enum ProcessingMethod {
+        PROCESSING_METHOD_UNKNOWN = 0;
+        PROCESSING_METHOD_GPS = 1;
+        PROCESSING_METHOD_CELLID = 2;
+        PROCESSING_METHOD_WLAN = 3;
+        PROCESSING_METHOD_MANUAL = 4;
+        PROCESSING_METHOD_FUSED = 5;
+    }
+    
+    enum ReferenceNorth {
+        REFERENCE_NORTH_MAGNETIC = 0;
+        REFERENCE_NORTH_TRUE = 1;
+    }
+    
+    enum ReferenceAltitude {
+        REFERENCE_ALTITUDE_SEA_LEVEL = 0;
+    }
+}

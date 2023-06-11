@@ -1,0 +1,16 @@
+[package]
+name = "lri-rs"
+version = "0.1.0"
+authors = ["Daniel L. Lu <daniel@lawrence.lu>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+protobuf = { version = "2.22.0", features = ["with-bytes"] }
+serde = "1.0"
+image = "0.23.14"
+anyhow = "1.0"
+
+[build-dependencies]
+protobuf-codegen-pure = "2.22.0"

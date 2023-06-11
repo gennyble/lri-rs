@@ -1,0 +1,106 @@
+syntax = "proto2";
+
+package ltpb;
+
+import "camera_module.proto";
+import "camera_id.proto";
+import "time_stamp.proto";
+import "geometric_calibration.proto";
+import "color_calibration.proto";
+import "sensor_characterization.proto";
+import "vignetting_characterization.proto";
+import "hot_pixel_map.proto";
+import "device_temp.proto";
+import "dead_pixel_map.proto";
+import "tof_calibration.proto";
+import "flash_calibration.proto";
+import "sensor_type.proto";
+import "hw_info.proto";
+import "view_preferences.proto";
+import "proximity_sensors.proto";
+import "imu_data.proto";
+import "gps_data.proto";
+import "face_data.proto";
+
+message FactoryDeviceCalibration {
+    optional FlashCalibration flash = 1;
+    optional ToFCalibration tof = 2;
+    optional TimeStamp time_stamp = 3;
+}
+
+message FactoryModuleCalibration {
+    required CameraID camera_id = 1;
+    repeated ColorCalibration color = 2;
+    optional GeometricCalibration geometry = 3;
+    optional VignettingCharacterization vignetting = 4;
+    optional HotPixelMap hot_pixel_map = 5;
+    optional DeadPixelMap dead_pixel_map = 6;
+    optional TimeStamp time_stamp = 7;
+}
+
+message ColorCalibrationGold {
+    required CameraID camera_id = 1;
+    repeated ColorCalibration data = 2;
+    optional TimeStamp time_stamp = 3;
+}
+
+message SensorData {
+    required SensorType type = 1;
+    required SensorCharacterization data = 2;
+    optional TimeStamp time_stamp = 3;
+}
+
+message FlashData {
+    required Mode mode = 1;
+    enum Mode {
+        NOFLASH = 0;
+        FLASH = 1;
+        TORCH = 2;
+    }
+    
+    optional uint32 ledcool_current = 2;
+    optional uint32 ledwarm_current = 3;
+    optional uint32 flash_duration = 4;
+    optional int32 offset_duration = 5;
+}
+
+message AFDebugInfo {
+    optional bool focus_achieved = 1;
+    optional int32 image_focal_length = 2;
+}
+
+message Compatibility {
+    required uint32 version = 1;
+    repeated string features = 2;
+}
+
+message LightHeader {
+    optional uint64 image_unique_id_low = 1;
+    optional uint64 image_unique_id_high = 2;
+    optional TimeStamp image_time_stamp = 3;
+    optional int32 image_focal_length = 4;
+    optional CameraID image_reference_camera = 5;
+    optional uint64 device_unique_id_low = 6;
+    optional uint64 device_unique_id_high = 7;
+    optional string device_model_name = 8;
+    optional string device_fw_version = 9;
+    optional string device_asic_fw_version = 10;
+    optional DeviceTemp device_temperature = 11;
+    repeated CameraModule modules = 12;
+    repeated FactoryModuleCalibration module_calibration = 13;
+    optional FactoryDeviceCalibration device_calibration = 14;
+    repeated ColorCalibrationGold gold_cc = 15;
+    repeated SensorData sensor_data = 16;
+    optional float tof_range = 17;
+    optional HwInfo hw_info = 18;
+    optional ViewPreferences view_preferences = 19;
+    optional ProximitySensors proximity_sensors = 20;
+    optional FlashData flash_data = 22;
+    repeated IMUData imu_data = 23;
+    optional AFDebugInfo af_info = 24;
+    optional GPSData gps_data = 25;
+    optional Compatibility compatibility = 26;
+    repeated FaceData face_data = 27;
+    
+    reserved 21;
+}

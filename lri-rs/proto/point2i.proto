@@ -1,0 +1,8 @@
+syntax = "proto2";
+
+package ltpb;
+
+message Point2I {
+    required int32 x = 1;
+    required int32 y = 2;
+}

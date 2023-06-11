@@ -52,13 +52,17 @@ fn main() {
 		}
 	}
 
+	// Grabbed, quickly, from the sensor datasheets. (or in the case of the
+	// imx386 on some random website (canwe have a datasheet? shit)).
 	let ar835 = 3264 * 2448;
 	let ar835_6mp = 3264 * 1836;
-	let ar1335_crop = 4160 * 3120;
 	let ar1335 = 4208 * 3120;
 	let imx386 = 4032 * 3024;
 
-	let known_res = vec![ar835, ar835_6mp, ar1335, imx386];
+	// Determined by lak experimentally
+	let ar1335_crop = 4160 * 3120;
+
+	let known_res = vec![ar835, ar835_6mp, ar1335, imx386, ar1335_crop];
 
 	println!("\nFound {} LightHeaders", heads.len());
 
@@ -134,63 +138,50 @@ fn main() {
 		println!("Found stamp in {idx}");
 	}
 
-	println!("\nAttemtping to unpack image in idx2");
-	let head = &heads[1];
-	let msg = body(head, &data);
-	let mut up = Unpacker::new();
-	for idx in (0..16224000).rev() {
-		up.push(msg[idx]);
+	println!("\nAttemtping to unpack image in idx0");
+	let head = &heads[0];
+	let mut msg = body(head, &data);
+	for AHH in 0..2 {
+		let mut up = Unpacker::new();
+		for idx in (0..16224000).rev() {
+			up.push(msg[idx]);
+		}
+		up.finish();
+
+		dump(&msg[..16224000], "fordatadog.packed");
+
+		let mut imgdata = vec![];
+		for (idx, chnk) in up.out.chunks(2).enumerate() {
+			let mut sixteen = (u16::from_le_bytes([chnk[0], chnk[1]]) as f32 / 1024.0) * 255.0;
+
+			imgdata.push(sixteen.min(255.0) as u8);
+		}
+
+		let rawimg: Image<u8, BayerRgb> = Image::from_raw_parts(
+			4160,
+			3120,
+			RawMetadata {
+				whitebalance: [1.0, 1.0, 1.35],
+				whitelevels: [1024, 1024, 1024],
+				crop: None,
+				cfa: CFA::new("BGGR"),
+				cam_to_xyz: Matrix3::new(1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0),
+			},
+			imgdata.clone(),
+		);
+		let mut img = rawimg.debayer();
+
+		for px in img.data.chunks_mut(3) {
+			px[0] = (px[0] as f32 * 1.95).min(255.0) as u8;
+			px[2] = (px[2] as f32 * 1.36).min(255.0) as u8;
+		}
+
+		let png = format!("image_{AHH}.png");
+		make_png(&png, 4160, 3120, ColorType::Rgb, BitDepth::Eight, &img.data);
+		println!("Wrote {png}");
+
+		msg = &msg[16224000..]; // + head.header.message_length as usize * 2..];
 	}
-	up.finish();
-
-	dump(&msg[..16224000], "fordatadog.packed");
-
-	let mut imgdata = vec![];
-	for (idx, chnk) in up.out.chunks(2).enumerate() {
-		let mut sixteen = (u16::from_le_bytes([chnk[0], chnk[1]]) as f32 / 1024.0) * 255.0;
-
-		// Bad bayer to grayscale (color corrrect)
-		/*let row = idx / 4160;
-		if row % 2 == 0 {
-			if idx % 2 == 0 {
-				sixteen *= 1.35;
-			}
-		} else {
-			if idx % 2 == 1 {
-				sixteen *= 1.95;
-			}
-		}*/
-
-		imgdata.push(sixteen.min(255.0) as u8);
-	}
-
-	let rawimg: Image<u8, BayerRgb> = Image::from_raw_parts(
-		4160,
-		3120,
-		RawMetadata {
-			whitebalance: [1.0, 1.0, 1.0],
-			whitelevels: [512, 1024, 768],
-			crop: None,
-			cfa: CFA::new("BGGR"),
-			cam_to_xyz: Matrix3::new(1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0),
-		},
-		imgdata.clone(),
-	);
-	let mut img = rawimg.debayer();
-
-	for px in img.data.chunks_mut(3) {
-		px[0] = (px[0] as f32 * 1.95).min(255.0) as u8;
-		px[2] = (px[2] as f32 * 1.36).min(255.0) as u8;
-	}
-
-	make_png(
-		"image.png",
-		4160,
-		3120,
-		ColorType::Rgb,
-		BitDepth::Eight,
-		&img.data,
-	);
 
 	let msg = &msg[16224000..16224000 + head.header.message_length as usize];
 	dump(msg, "afterimg2");
@@ -203,14 +194,14 @@ fn main() {
 	let question = &msg[..4352];
 	let next = &msg[4352..];
 
-	println!(
+	/*println!(
 		"Up out is {} bytes. Expecte {}. Difference {} [work: {:0b} - idx {}]",
 		up.out.len(),
 		ar1335_crop * 2,
 		up.out.len() as isize - (ar1335_crop * 2) as isize,
 		up.work,
 		up.work_idx
-	);
+	);*/
 
 	println!("\nDumping the Message of idx 4");
 	dump_body(&heads[4], &data, "msg4.lri_part");
