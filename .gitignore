@@ -1,5 +1,6 @@
 **/target
 *.png
+*.jpg
 *.lri_part
 
 # MacOS you exhaust me. Leave me alone

@@ -14,44 +14,38 @@ use unpacker::Unpacker;
 // I know: just play with the raw data
 fn main() {
 	let fname = std::env::args().nth(1).unwrap();
-	let data = std::fs::read(fname).unwrap();
+	let mut data = std::fs::read(fname).unwrap();
 
 	println!("Read {:.2}MB", data.len() as f32 / (1024.0 * 1024.0));
 
-	let magic_id = [76, 69, 76, 82];
-	let magic_id_skip = 21;
-	let reserved = [0, 0, 0, 0, 0, 0, 0];
-	let look_length = magic_id.len() + magic_id_skip + reserved.len();
+	let mut blocks = vec![];
 
-	let mut heads = vec![];
-	let mut skeptical_heads = vec![];
-
-	println!("\nLooking for LELR");
-	for idx in 0..data.len() - look_length {
-		if &data[idx..idx + magic_id.len()] == magic_id.as_slice() {
-			print!("Found! Offset {idx} - ");
-
-			let reserved_start = idx + magic_id.len() + magic_id_skip;
-			if &data[reserved_start..reserved_start + reserved.len()] == reserved.as_slice() {
-				println!("Reserved matched!");
-
-				let header = LightHeader::new(&data[idx..]);
-				let start = idx;
-				let end = start + header.combined_length as usize;
-
-				heads.push(HeaderAndOffset { header, start, end });
-			} else {
-				println!("No reserve match :(");
-
-				let header = LightHeader::new(&data[idx..]);
-				let start = idx;
-				let end = start + header.combined_length as usize;
-
-				skeptical_heads.push(HeaderAndOffset { header, start, end });
-			}
+	loop {
+		let header = DataHeader::new(&data[..]);
+		let end = header.combined_length as usize;
+		if end == data.len() {
+			blocks.push(Block { header, data });
+			break;
+		} else {
+			let remain = data.split_off(end);
+			blocks.push(Block { header, data });
+			data = remain;
 		}
 	}
 
+	println!("Found {} blocks", blocks.len());
+
+	for (idx, block) in blocks.iter().enumerate() {
+		if block.is_sensor() {
+			println!("\nIDX {idx}");
+			block.header.print_info();
+			println!("");
+		} else {
+			block.header.nice_info();
+		}
+	}
+
+	/*
 	// Grabbed, quickly, from the sensor datasheets. (or in the case of the
 	// imx386 on some random website (canwe have a datasheet? shit)).
 	let ar835 = 3264 * 2448;
@@ -62,88 +56,12 @@ fn main() {
 	// Determined by lak experimentally
 	let ar1335_crop = 4160 * 3120;
 
-	let known_res = vec![ar835, ar835_6mp, ar1335, imx386, ar1335_crop];
-
-	println!("\nFound {} LightHeaders", heads.len());
-
-	println!("\nLooking for known resolutions!");
-	for (idx, head) in heads.iter().enumerate() {
-		for res in &known_res {
-			if head.header.header_length == *res {
-				println!("KNOWN RES: {}", idx);
-			}
-		}
-	}
-
-	println!("\nChecking if there is outlying data...");
-	for idx in 1..heads.len() {
-		let this = &heads[idx];
-		let before = &heads[idx - 1];
-
-		if before.end != this.start {
-			println!(
-				"Headers {} and {} are gapped by {} bytes",
-				idx - 1,
-				idx,
-				this.start - before.end
-			);
-		} else {
-			println!("{} and {} are consecutive with no gap!", idx - 1, idx);
-		}
-	}
-
-	let end_difference = heads.last().unwrap().end - data.len();
-	if end_difference > 0 {
-		println!("{} bytes at the end", end_difference);
-	} else {
-		println!("File has no extraneous data at the end!");
-	}
-
-	println!("\nDumping header info..");
-	heads.iter().for_each(|h| h.header.nice_info());
-
-	println!("\nDumping skeptical header info..");
-	skeptical_heads.iter().for_each(|h| h.header.bin_info());
-
-	println!("\nWriting large ones to disk and collecting the smalls!");
-	let mut small: Vec<u8> = vec![];
-	for (idx, head) in heads.iter().enumerate() {
-		if head.header.header_length > 1024 * 1024 {
-			// I guess we only care if it's at least a megabyte
-			let name = format!("{idx}.lri_part");
-			let mut file = File::create(&name).unwrap();
-			file.write_all(&data[head.start..head.end]).unwrap();
-			println!(
-				"\nWrote {:.2}MB to disk as {name}",
-				head.header.combined_length as f32 / (1024.0 * 1024.0)
-			);
-			head.header.print_info();
-		} else {
-			small.extend(&data[head.start..head.end]);
-		}
-	}
-
-	let mut file = File::create("small.lri_part").unwrap();
-	file.write_all(&small).unwrap();
-	println!(
-		"Wrote {:.2}MB to disk as small.lri_part",
-		small.len() as f32 / (1024.0 * 1024.0)
-	);
-
-	let stamp = [
-		08, 0xe7, 0x0f, 0x10, 0x06, 0x18, 0x07, 0x20, 0x13, 0x28, 0x0e,
-	];
-	println!("\nLooking for timestamps!");
-	for (idx, head) in find_pattern(&heads, &data, &stamp) {
-		println!("Found stamp in {idx}");
-	}
-
 	println!("\nAttemtping to unpack image in idx0");
 	let head = &heads[0];
 	let mut msg = body(head, &data);
 	for AHH in 0..2 {
 		let mut up = Unpacker::new();
-		for idx in (0..16224000).rev() {
+		for idx in (0..16224000 * 2).rev() {
 			up.push(msg[idx]);
 		}
 		up.finish();
@@ -159,7 +77,7 @@ fn main() {
 
 		let rawimg: Image<u8, BayerRgb> = Image::from_raw_parts(
 			4160,
-			3120,
+			3120 * 2,
 			RawMetadata {
 				whitebalance: [1.0, 1.0, 1.35],
 				whitelevels: [1024, 1024, 1024],
@@ -177,31 +95,18 @@ fn main() {
 		}
 
 		let png = format!("image_{AHH}.png");
-		make_png(&png, 4160, 3120, ColorType::Rgb, BitDepth::Eight, &img.data);
+		make_png(
+			&png,
+			4160,
+			3120 * 2,
+			ColorType::Rgb,
+			BitDepth::Eight,
+			&img.data,
+		);
 		println!("Wrote {png}");
 
 		msg = &msg[16224000..]; // + head.header.message_length as usize * 2..];
 	}
-
-	let msg = &msg[16224000..16224000 + head.header.message_length as usize];
-	dump(msg, "afterimg2");
-
-	match lri_rs::proto::camera_module::CameraModule::parse_from_bytes(msg) {
-		Ok(o) => println!("parsed"),
-		Err(e) => println!("failed {e}"),
-	}
-
-	let question = &msg[..4352];
-	let next = &msg[4352..];
-
-	/*println!(
-		"Up out is {} bytes. Expecte {}. Difference {} [work: {:0b} - idx {}]",
-		up.out.len(),
-		ar1335_crop * 2,
-		up.out.len() as isize - (ar1335_crop * 2) as isize,
-		up.work,
-		up.work_idx
-	);*/
 
 	println!("\nDumping the Message of idx 4");
 	dump_body(&heads[4], &data, "msg4.lri_part");
@@ -256,12 +161,7 @@ fn main() {
 				println!("SensorData! Skipping for now...");
 			}
 		}
-	}
-}
-
-fn dump_body(head: &HeaderAndOffset, data: &[u8], path: &str) {
-	let msg = body(head, data);
-	dump(msg, path)
+	}*/
 }
 
 fn dump(data: &[u8], path: &str) {
@@ -271,33 +171,6 @@ fn dump(data: &[u8], path: &str) {
 		"Wrote {:.2}KB to disk as {path}",
 		data.len() as f32 / 1024.0
 	);
-}
-
-fn body<'a>(head: &HeaderAndOffset, data: &'a [u8]) -> &'a [u8] {
-	if head.header.header_length == 32 {
-		&data[head.start + head.header.header_length as usize
-			..head.start + head.header.header_length as usize + head.header.message_length as usize]
-	} else {
-		&data[head.start + 32..head.end]
-	}
-}
-
-fn find_pattern<'a>(
-	heads: &'a [HeaderAndOffset],
-	data: &[u8],
-	pattern: &[u8],
-) -> Vec<(usize, &'a HeaderAndOffset)> {
-	let mut finds = vec![];
-
-	for (head_idx, head) in heads.iter().enumerate() {
-		for idx in head.start..head.end - pattern.len() {
-			if &data[idx..idx + pattern.len()] == pattern {
-				finds.push((head_idx, head));
-			}
-		}
-	}
-
-	finds
 }
 
 fn make_png<P: AsRef<Path>>(
@@ -327,16 +200,24 @@ fn make_png<P: AsRef<Path>>(
 }
 
 #[derive(Clone, Debug)]
-struct HeaderAndOffset {
-	header: LightHeader,
-	// Inclusive
-	start: usize,
-	// Exclusive
-	end: usize,
+struct Block {
+	header: DataHeader,
+	data: Vec<u8>,
+}
+
+impl Block {
+	pub fn body(&self) -> &[u8] {
+		&self.data[32..]
+	}
+
+	/// Block contains sensor data.
+	pub fn is_sensor(&self) -> bool {
+		self.header.header_length != 32
+	}
 }
 
 #[derive(Clone, Debug)]
-struct LightHeader {
+struct DataHeader {
 	magic_number: String,
 	combined_length: u64,
 	//FIXME: This appears to be the content length and not the header length? I thought
@@ -349,7 +230,7 @@ struct LightHeader {
 	reserved: [u8; 7],
 }
 
-impl LightHeader {
+impl DataHeader {
 	pub fn new(data: &[u8]) -> Self {
 		let magic_number = String::from_utf8(data[0..4].to_vec()).unwrap();
 		let combined_length = u64::from_le_bytes(data[4..12].try_into().unwrap());
@@ -364,7 +245,7 @@ impl LightHeader {
 		let kind = data[24];
 		let reserved = data[25..32].try_into().unwrap();
 
-		LightHeader {
+		DataHeader {
 			magic_number,
 			combined_length,
 			header_length,
@@ -375,7 +256,7 @@ impl LightHeader {
 	}
 
 	pub fn print_info(&self) {
-		let LightHeader {
+		let Self {
 			magic_number,
 			combined_length,
 			header_length,
@@ -384,17 +265,21 @@ impl LightHeader {
 			reserved,
 		} = self;
 
-		println!("Magic: {magic_number}\nCombined Length: {combined_length}\nHeader Length: {header_length}\nMessage Length: {message_length}\nKind: {kind}\nReserved: {reserved:?}");
+		let combined_human = humanish(*combined_length as usize);
+		let header_human = humanish(*header_length as usize);
+		let message_human = humanish(*message_length as usize);
+
+		println!("Magic: {magic_number}\nCombined Length: {combined_human}\nHeader Length: {header_human}\nMessage Length: {message_human}\nKind: {kind}\nReserved: {reserved:?}");
 	}
 
 	pub fn nice_info(&self) {
-		let LightHeader {
-			magic_number,
-			combined_length,
+		let Self {
+			magic_number: _a,
+			combined_length: _b,
 			header_length,
-			message_length,
+			message_length: _c,
 			kind,
-			reserved,
+			reserved: _d,
 		} = self;
 
 		println!(
@@ -404,15 +289,27 @@ impl LightHeader {
 	}
 
 	pub fn bin_info(&self) {
-		let LightHeader {
+		let Self {
 			magic_number,
 			combined_length,
-			header_length,
-			message_length,
-			kind,
-			reserved,
+			header_length: _a,
+			message_length: _b,
+			kind: _c,
+			reserved: _d,
 		} = self;
 
 		println!("{magic_number} {:b}", combined_length);
+	}
+}
+
+pub fn humanish(bytes: usize) -> String {
+	if bytes > 1024 * 10 {
+		// Ehhhhh 10KB
+		format!("{:.2} KB", bytes as f32 / 1024.0)
+	} else if bytes > 1024 * 1024 {
+		// A MB is enough to justify this I guess
+		format!("{:.2} MB", bytes as f32 / 1024.0 * 1024.0)
+	} else {
+		format!("{}", bytes)
 	}
 }
