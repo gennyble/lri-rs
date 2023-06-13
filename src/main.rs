@@ -39,7 +39,7 @@ fn main() {
 		if block.is_sensor() {
 			println!("\nIDX {idx}");
 			block.header.print_info();
-			println!("");
+			fuckwithsensordata(block, idx);
 		} else {
 			block.header.nice_info();
 		}
@@ -162,6 +162,88 @@ fn main() {
 			}
 		}
 	}*/
+}
+
+fn fuckwithsensordata(block: &Block, idx: usize) {
+	let Block { header, data } = block;
+
+	let clen = header.combined_length;
+	let hlen = header.header_length;
+	let mlen = header.message_length;
+
+	println!("\n== Fuck With Sensor Data {idx} ==");
+
+	println!("Combined: {clen}");
+	println!("Header:   {hlen}");
+	println!("Message:  {mlen}\n");
+
+	let width = 4160;
+	let height = 3120;
+	let pixel_count = width * height;
+	let packed_count = ((pixel_count as f32 * 10.0) / 8.0) as usize;
+
+	println!("Assuming {width}x{height} [{pixel_count}] [packed: {packed_count}]");
+
+	let mut data = block.body();
+	// I'm lazy and don't want to manually increment
+	for x in 0..10 {
+		let fname = format!("block{idx}_image{x}.png");
+
+		// Use my really efficient (read that sarcastically, please) 10-bit unpacker
+		let mut up = Unpacker::new();
+		for idx in (0..packed_count).rev() {
+			up.push(data[idx]);
+		}
+		up.finish();
+
+		// Sixteen - eightbits
+		let mut imgdata = vec![];
+		for chnk in up.out.chunks(2) {
+			let sixteen = (u16::from_le_bytes([chnk[0], chnk[1]]) as f32 / 1024.0) * 255.0;
+
+			imgdata.push(sixteen.min(255.0) as u8);
+		}
+
+		// we want it to be RGB not weird bayer
+		let rawimg: Image<u8, BayerRgb> = Image::from_raw_parts(
+			width,
+			height,
+			// use mostly fake data except the CFA
+			RawMetadata {
+				whitebalance: [1.0, 1.0, 1.0],
+				whitelevels: [1024, 1024, 1024],
+				crop: None,
+				cfa: CFA::new("BGGR"),
+				cam_to_xyz: Matrix3::new(1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0),
+			},
+			imgdata,
+		);
+		let img = rawimg.debayer();
+
+		// Yay PNG
+		make_png(
+			&fname,
+			width,
+			height,
+			ColorType::Rgb,
+			BitDepth::Eight,
+			&img.data,
+		);
+		println!("Wrote file {fname}");
+
+		let skip = packed_count + mlen as usize;
+		if data.len() <= skip + packed_count {
+			println!(
+				"Only {} bytes will be left in data after output! Which is not enough",
+				data.len() - skip
+			);
+			break;
+		} else {
+			data = &data[skip..]
+		}
+	}
+
+	println!("===================================\n");
 }
 
 fn dump(data: &[u8], path: &str) {
