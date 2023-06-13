@@ -12,3 +12,5 @@ unpacker = { path = "unpacker" }
 rawproc = { git = "https://github.com/eclecticnybles/gaze" }
 rawloader = "0.37.1"
 nalgebra = "0.31.4"
+protobuf-json-mapping = "3.2.0"
+protobuf = "3.2.0"

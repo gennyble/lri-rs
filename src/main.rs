@@ -1,6 +1,9 @@
 use std::{fs::File, io::Write, os::unix::prelude::FileExt, path::Path};
 
-use lri_rs::{proto::camera_module::CameraModule, Message};
+use lri_rs::{
+	proto::{self, camera_module::CameraModule},
+	Message,
+};
 use nalgebra::Matrix3;
 use png::{BitDepth, ColorType};
 use rawloader::CFA;
@@ -42,6 +45,7 @@ fn main() {
 			fuckwithsensordata(block, idx);
 		} else {
 			block.header.nice_info();
+			dump_lightheader(block, idx);
 		}
 	}
 
@@ -246,6 +250,25 @@ fn fuckwithsensordata(block: &Block, idx: usize) {
 	println!("===================================\n");
 }
 
+fn dump_lightheader(block: &Block, idx: usize) {
+	let fname = format!("block{idx}_lightheader.protodump");
+
+	if !block.is_lightheader() {
+		return;
+	}
+
+	match lri_rs::proto::lightheader::LightHeader::parse_from_bytes(block.body()) {
+		Err(_e) => {
+			println!("Failed parse I'm so toried to write mote");
+		}
+		Ok(lh) => {
+			let proto = protobuf::text_format::print_to_string_pretty(&lh);
+			std::fs::write(&fname, proto).unwrap();
+			println!("Write protobuf data to {fname}");
+		}
+	}
+}
+
 fn dump(data: &[u8], path: &str) {
 	let mut file = File::create(&path).unwrap();
 	file.write_all(data).unwrap();
@@ -295,6 +318,10 @@ impl Block {
 	/// Block contains sensor data.
 	pub fn is_sensor(&self) -> bool {
 		self.header.header_length != 32
+	}
+
+	pub fn is_lightheader(&self) -> bool {
+		!self.is_sensor() && self.header.kind == 0
 	}
 }
 
