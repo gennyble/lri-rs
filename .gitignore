@@ -1,11 +1,2 @@
-**/target
-*.png
-*.jpg
-*.lri_part
-*.protodump
+/target
 
-# MacOS you exhaust me. Leave me alone
-**/.DS_Store
-
-fordatadog.packed
-afterimg2
