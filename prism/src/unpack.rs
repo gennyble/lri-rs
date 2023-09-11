@@ -3,11 +3,6 @@ const TEN_MASK: u64 = 1023; // ten bits
 pub fn tenbit(packd: &[u8], count: usize, upack: &mut [u16]) {
 	let required_len_packd = (count as f32 * (10.0 / 8.0)).ceil() as usize;
 
-	println!(
-		"requires {required_len_packd} bytes | {} groups of 5",
-		count / 4
-	);
-
 	if count > upack.len() {
 		panic!(
 			"expected output buffer to be {count} bytes, got {} bytes",
@@ -60,3 +55,7 @@ pub fn tenbit(packd: &[u8], count: usize, upack: &mut [u16]) {
 		}
 	}
 }
+
+//pub fn twelvebit(packed: &[u8]) {
+// 3 bytes per 2 12-bits
+//}
