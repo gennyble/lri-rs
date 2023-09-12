@@ -1,9 +1,11 @@
+use std::time::Duration;
+
 use lri_proto::{
 	gps_data::GPSData, lightheader::LightHeader, matrix3x3f::Matrix3x3F,
 	view_preferences::ViewPreferences, Message as PbMessage,
 };
 
-use crate::{CameraId, CameraInfo, ColorInfo, RawImage, SensorModel};
+use crate::{CameraId, CameraInfo, ColorInfo, DataFormat, RawData, RawImage, SensorModel};
 
 pub(crate) struct Block<'lri> {
 	pub header: Header,
@@ -37,24 +39,27 @@ impl<'lri> Block<'lri> {
 
 	pub fn extract_meaningful_data(
 		&self,
+		ext: &mut ExtractedData,
 		images: &mut Vec<RawImage<'lri>>,
 		colors: &mut Vec<ColorInfo>,
 		infos: &mut Vec<CameraInfo>,
-	) -> ExtractedData {
-		let mut ext = ExtractedData {
-			reference_camera: None,
-		};
-
+	) {
 		let LightHeader {
 			mut hw_info,
-			mut module_calibration,
-			mut modules,
-			mut image_reference_camera,
+			module_calibration,
+			modules,
+			image_reference_camera,
+			device_fw_version,
+			image_focal_length,
+			af_info,
 			..
 		} = if let Message::LightHeader(lh) = self.message() {
 			lh
+		} else if let Message::ViewPreferences(vp) = self.message() {
+			self.extract_view(vp, ext);
+			return;
 		} else {
-			return ext;
+			return;
 		};
 
 		// Form the CameraInfo struct for mapping CameraId to SensorType
@@ -117,7 +122,51 @@ impl<'lri> Block<'lri> {
 			let data_length = surface.row_stride() as usize * height;
 
 			let format = surface.format().into();
-			let image_data = &self.data[offset..offset + data_length];
+			let image_data = match format {
+				DataFormat::BayerJpeg => {
+					let bjpg_header_len = 1576;
+					let mut wrk = &self.data[offset..];
+
+					let format = u32::from_le_bytes(wrk[4..8].try_into().unwrap());
+
+					let jpeg0_len = u32::from_le_bytes(wrk[8..12].try_into().unwrap()) as usize;
+					let jpeg1_len = u32::from_le_bytes(wrk[12..16].try_into().unwrap()) as usize;
+					let jpeg2_len = u32::from_le_bytes(wrk[16..20].try_into().unwrap()) as usize;
+					let jpeg3_len = u32::from_le_bytes(wrk[20..24].try_into().unwrap()) as usize;
+
+					let mut get = |len: usize| -> &[u8] {
+						let data = &wrk[..len];
+						wrk = &wrk[len..];
+						data
+					};
+
+					let header = get(bjpg_header_len);
+					let jpeg0 = get(jpeg0_len);
+
+					match format {
+						1 => RawData::BayerJpeg {
+							header,
+							format,
+							jpeg0,
+							jpeg1: &wrk[0..0],
+							jpeg2: &wrk[0..0],
+							jpeg3: &wrk[0..0],
+						},
+						0 => RawData::BayerJpeg {
+							header,
+							format,
+							jpeg0,
+							jpeg1: get(jpeg1_len),
+							jpeg2: get(jpeg2_len),
+							jpeg3: get(jpeg3_len),
+						},
+						_ => unreachable!(),
+					}
+				}
+				DataFormat::Packed10bpp => RawData::Packed10bpp {
+					data: &self.data[offset..offset + data_length],
+				},
+			};
 
 			let sbro = module.sensor_bayer_red_override.clone().unwrap();
 
@@ -139,7 +188,17 @@ impl<'lri> Block<'lri> {
 			ext.reference_camera = Some(irc.into());
 		}
 
-		ext
+		if let Some(afd) = af_info.clone().take() {
+			ext.af_achieved.get_or_insert(afd.focus_achieved());
+		}
+
+		if let Some(fwv) = device_fw_version {
+			ext.fw_version.get_or_insert(fwv);
+		}
+
+		if let Some(x) = image_focal_length {
+			ext.focal_length.get_or_insert(x);
+		}
 	}
 
 	// It kept making my neat little array very, very tall
@@ -151,10 +210,33 @@ impl<'lri> Block<'lri> {
 			mat.x20(), mat.x21(), mat.x22(),
 		]
 	}
+
+	fn extract_view(&self, vp: ViewPreferences, ext: &mut ExtractedData) {
+		let ViewPreferences {
+			image_integration_time_ns,
+			image_gain,
+			..
+		} = vp;
+
+		if let Some(ns) = image_integration_time_ns {
+			ext.image_integration_time = Some(Duration::from_nanos(ns));
+		}
+
+		if let Some(g) = image_gain {
+			ext.image_gain.get_or_insert(g);
+		}
+	}
 }
 
+#[derive(Debug, Default)]
 pub(crate) struct ExtractedData {
 	pub reference_camera: Option<CameraId>,
+	pub fw_version: Option<String>,
+	pub focal_length: Option<i32>,
+
+	pub image_gain: Option<f32>,
+	pub image_integration_time: Option<Duration>,
+	pub af_achieved: Option<bool>,
 }
 
 pub enum Message {

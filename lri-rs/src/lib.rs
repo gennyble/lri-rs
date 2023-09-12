@@ -1,4 +1,4 @@
-use std::fmt;
+use std::{fmt, time::Duration};
 
 use block::{Block, ExtractedData, Header};
 use lri_proto::{
@@ -13,15 +13,22 @@ pub struct LriFile<'lri> {
 	pub images: Vec<RawImage<'lri>>,
 	pub colors: Vec<ColorInfo>,
 	pub camera_infos: Vec<CameraInfo>,
+
+	pub focal_length: Option<i32>,
+	pub firmware_version: Option<String>,
+	pub image_integration_time: Option<Duration>,
+	pub af_achieved: Option<bool>,
+	pub image_gain: Option<f32>,
 }
 
 impl<'lri> LriFile<'lri> {
 	/// Read
 	pub fn decode(mut data: &'lri [u8]) -> Self {
-		let mut reference = None;
 		let mut images = vec![];
 		let mut colors = vec![];
 		let mut camera_infos = vec![];
+
+		let mut ext = ExtractedData::default();
 
 		// Read data blocks and extract informtion we care about
 		loop {
@@ -40,14 +47,7 @@ impl<'lri> LriFile<'lri> {
 				data: block_data,
 			};
 
-			match block.extract_meaningful_data(&mut images, &mut colors, &mut camera_infos) {
-				ExtractedData {
-					reference_camera: Some(irc),
-				} => {
-					reference = Some(irc);
-				}
-				_ => (),
-			}
+			block.extract_meaningful_data(&mut ext, &mut images, &mut colors, &mut camera_infos);
 		}
 
 		// Further fill in the RawImage's we extracted
@@ -66,10 +66,16 @@ impl<'lri> LriFile<'lri> {
 		}
 
 		LriFile {
-			image_reference_camera: reference,
+			image_reference_camera: ext.reference_camera,
 			images,
 			colors,
 			camera_infos,
+
+			firmware_version: ext.fw_version,
+			focal_length: ext.focal_length,
+			image_integration_time: ext.image_integration_time,
+			af_achieved: ext.af_achieved,
+			image_gain: ext.image_gain,
 		}
 	}
 
@@ -92,6 +98,20 @@ impl<'lri> LriFile<'lri> {
 	}
 }
 
+pub enum RawData<'img> {
+	BayerJpeg {
+		header: &'img [u8],
+		format: u32,
+		jpeg0: &'img [u8],
+		jpeg1: &'img [u8],
+		jpeg2: &'img [u8],
+		jpeg3: &'img [u8],
+	},
+	Packed10bpp {
+		data: &'img [u8],
+	},
+}
+
 pub struct RawImage<'img> {
 	/// Camera that captured this image
 	pub camera: CameraId,
@@ -101,10 +121,9 @@ pub struct RawImage<'img> {
 	pub width: usize,
 	pub height: usize,
 
-	/// How the image data is encoded in the file
+	/// What format the data is in
 	pub format: DataFormat,
-	/// Image data
-	pub data: &'img [u8],
+	pub data: RawData<'img>,
 	/// "sensor bayer red offset"
 	pub sbro: (i32, i32),
 	/// All color information associated with this [CameraId] for different [Whitepoint]s
@@ -135,6 +154,9 @@ impl<'img> RawImage<'img> {
 
 	// The AR1335 seems to be BGGR, which was weird.
 	fn cfa_string_ar1335(&self) -> Option<&'static str> {
+		//if self.format == DataFormat::BayerJpeg {
+		//	Some("BGGR")
+		//} else {
 		match self.sbro {
 			(-1, -1) => None,
 			(0, 0) => Some("BGGR"),
@@ -143,6 +165,7 @@ impl<'img> RawImage<'img> {
 			(1, 1) => Some("RGGB"),
 			_ => unreachable!(),
 		}
+		//}
 	}
 
 	/// Uses the [SensorModel] to determine if the image's [ColorType].
@@ -192,14 +215,15 @@ pub struct CameraInfo {
 	sensor: SensorModel,
 }
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 /// The representation of the raw data in the LRI file
 pub enum DataFormat {
 	// I'm not sure what this is?? Do we ever see it???
 	BayerJpeg,
 	Packed10bpp,
-	Packed12bpp,
-	Packed14bpp,
+	// Never seen
+	//Packed12bpp,
+	//Packed14bpp,
 }
 
 impl fmt::Display for DataFormat {
@@ -207,8 +231,8 @@ impl fmt::Display for DataFormat {
 		let str = match self {
 			Self::BayerJpeg => "BayerJpeg",
 			Self::Packed10bpp => "Packed10bpp",
-			Self::Packed12bpp => "Packed12bpp",
-			Self::Packed14bpp => "Packed14bpp",
+			//Self::Packed12bpp => "Packed12bpp",
+			//Self::Packed14bpp => "Packed14bpp",
 		};
 
 		write!(f, "{str}")
@@ -220,8 +244,8 @@ impl From<FormatType> for DataFormat {
 		match proto {
 			FormatType::RAW_BAYER_JPEG => Self::BayerJpeg,
 			FormatType::RAW_PACKED_10BPP => Self::Packed10bpp,
-			FormatType::RAW_PACKED_12BPP => Self::Packed12bpp,
-			FormatType::RAW_PACKED_14BPP => Self::Packed14bpp,
+			FormatType::RAW_PACKED_12BPP => unreachable!(),
+			FormatType::RAW_PACKED_14BPP => unreachable!(),
 			FormatType::RAW_RESERVED_0
 			| FormatType::RAW_RESERVED_1
 			| FormatType::RAW_RESERVED_2
@@ -232,7 +256,7 @@ impl From<FormatType> for DataFormat {
 	}
 }
 
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub enum CameraId {
 	A1,
 	A2,

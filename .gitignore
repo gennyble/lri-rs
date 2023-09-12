@@ -1,3 +1,5 @@
 /target
 *.png
-lri-study
+*.jpg
+*.bjp
+**/.DS_Store

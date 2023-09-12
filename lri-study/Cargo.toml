@@ -1,0 +1,11 @@
+[package]
+name = "lri-study"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+camino = "1.1.6"
+lri-rs = { path = "../lri-rs" }
+owo-colors = "3.5.0"

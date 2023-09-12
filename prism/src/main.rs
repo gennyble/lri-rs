@@ -1,8 +1,15 @@
-use lri_rs::{DataFormat, LriFile, RawImage, Whitepoint};
+use std::collections::HashMap;
+
+use lri_rs::{CameraId, DataFormat, LriFile, RawData, RawImage, SensorModel, Whitepoint};
 use nalgebra::{Matrix3, Matrix3x1};
 
 mod rotate;
 mod unpack;
+
+pub struct Entry {
+	sensor: SensorModel,
+	count: usize,
+}
 
 fn main() {
 	let file_name = std::env::args().nth(1).unwrap();
@@ -13,6 +20,21 @@ fn main() {
 
 	lri.reference_image()
 		.map(|raw| make(raw, String::from("reference.png")));
+
+	let mut set: HashMap<CameraId, Entry> = HashMap::new();
+
+	for img in lri.images() {
+		set.entry(img.camera)
+			.and_modify(|e| e.count += 1)
+			.or_insert(Entry {
+				sensor: img.sensor,
+				count: 1,
+			});
+	}
+
+	set.into_iter().for_each(|kv| {
+		println!("{} {:?} {}", kv.0, kv.1.sensor, kv.1.count);
+	});
 
 	for (idx, img) in lri.images().enumerate() {
 		/*for color in &img.color {
@@ -35,7 +57,7 @@ fn main() {
 		//std::process::exit(0);
 
 		make(img, format!("image_{idx}.png"));
-		return;
+		//return;
 	}
 }
 
@@ -49,7 +71,7 @@ fn make(img: &RawImage, path: String) {
 		width,
 		height,
 		format,
-		mut data,
+		data,
 		sbro,
 		color,
 	} = img;
@@ -59,99 +81,18 @@ fn make(img: &RawImage, path: String) {
 		sbro.0, sbro.1
 	);
 
-	let stem = &path[..path.len() - 4];
+	let mut bayered = bayer(
+		data,
+		*width,
+		*height,
+		format!("{}_bjpg", &path[..path.len() - 4]),
+	);
 
-	if *format == DataFormat::BayerJpeg {
-		//FF d9 | 42 4A 50 47
-		let bjp_end = &[0xFF, 0xd9, 0x42, 0x4A, 0x50, 0x47];
-		let jfif_start = &[0xFF, 0xD8, 0xFF, 0xE0];
-		let jfif_end = &[0xFF, 0xD9];
-
-		for idx in 0..data.len() {
-			if &data[idx..idx + 6] == bjp_end {
-				data = &data[..idx + 2];
-				break;
-			}
-		}
-
-		let mut start = None;
-		let mut idx = 0;
-		let mut jfif_count = 0;
-		loop {
-			if idx >= data.len() {
-				break;
-			}
-
-			match start {
-				None => {
-					if &data[idx..idx + 4] == jfif_start {
-						start = Some(idx);
-
-						if jfif_count == 0 {
-							let path = format!("{stem}_only.bjp");
-							let out = &data[..idx];
-							std::fs::write(path, out).unwrap();
-						}
-
-						idx += 4;
-						continue;
-					}
-				}
-				Some(start_idx) => {
-					if &data[idx..idx + 2] == jfif_end {
-						let path = format!("{stem}_{jfif_count}.jpg");
-						let out = &data[start_idx..idx + 2];
-						std::fs::write(path, out).unwrap();
-
-						start = None;
-						jfif_count += 1;
-						idx += 2;
-						continue;
-					}
-				}
-			}
-
-			idx += 1;
-		}
-
-		std::fs::write(format!("{}.bjp", &path[..path.len() - 4]), data).unwrap();
-		return;
-	}
-
-	// Assume 10-bit
-	let size = width * height;
-	let mut ten_data = vec![0; size];
-	unpack::tenbit(data, width * height, ten_data.as_mut_slice());
-
-	// I've only seen it on one color defintion or
-	// something, but there's a black level of 42, so subtract it
-	ten_data.iter_mut().for_each(|p| *p = p.saturating_sub(42));
-
-	// B G B G B G
-	// G R G R G R
-
-	// A1 - 1:0
-	// A2 - -1:-1
-	// A3 - 1:0
-	// A4 - 1:0
-	// A5 - 0:1
-
-	// B1 - NO
-	// B2 - RO
-	// B3 - RO
-	// B4 - RO
-	// B5 - NO
-
-	// C1 - NO
-	// C2 - RO
-	// C3 - NO
-	// C4 - RO
-	// C5 - RO
-	// C6 - -1:-1
+	bayered.iter_mut().for_each(|p| *p = p.saturating_sub(42));
 
 	let (mut rgb, color_format) = match img.cfa_string() {
 		Some(cfa_string) => {
-			let rawimg: Image<u16, BayerRgb> = Image::from_raw_parts(
+			let rawimg: Image<u8, BayerRgb> = Image::from_raw_parts(
 				4160,
 				3120,
 				// We only care about CFA here because all we're doing is debayering
@@ -163,21 +104,24 @@ fn make(img: &RawImage, path: String) {
 					cfa: rawloader::CFA::new(cfa_string),
 					cam_to_xyz: nalgebra::Matrix3::zeros(),
 				},
-				ten_data,
+				bayered,
 			);
 
 			(rawimg.debayer().data, png::ColorType::Rgb)
+			//(bayered, png::ColorType::Grayscale)
 		}
-		None => (ten_data, png::ColorType::Grayscale),
+		None => (bayered, png::ColorType::Grayscale),
 	};
 
 	rotate::rotate_180(rgb.as_mut_slice());
 
-	let mut floats: Vec<f32> = rgb.into_iter().map(|p| p as f32 / 1023.0).collect();
+	let mut floats: Vec<f32> = rgb.into_iter().map(|p| p as f32 / 255.0).collect();
 
-	print!("\t");
-	color.iter().for_each(|c| print!("{:?} ", c.whitepoint));
-	println!();
+	if color.len() > 0 {
+		print!("\t");
+		color.iter().for_each(|c| print!("{:?} ", c.whitepoint));
+		println!();
+	}
 
 	match img.color_info(Whitepoint::F11) {
 		Some(c) => {
@@ -189,7 +133,7 @@ fn make(img: &RawImage, path: String) {
 
 			let xyz_d65 = to_xyz * d50_d65;
 
-			println!("{color}");
+			//println!("{color}");
 
 			let white = xyz_d65 * Matrix3x1::new(1.0, 1.0, 1.0);
 
@@ -197,15 +141,15 @@ fn make(img: &RawImage, path: String) {
 			let white_y = white[1] / (white[0] + white[1] + white[2]);
 			let white_z = 1.0 - white_x - white_y;
 
-			println!(
+			/*println!(
 				"\t{:?} ||| white: x = {} y = {} z = {}",
 				c.whitepoint, white_x, white_y, white_z
-			);
+			);*/
 
 			let premul = to_xyz * to_srgb;
 
 			let prenorm = premul.normalize();
-			println!("{prenorm}");
+			//println!("{prenorm}");
 
 			for chnk in floats.chunks_mut(3) {
 				let r = chnk[0] * (1.0 / c.rg);
@@ -269,6 +213,73 @@ pub fn srgb_gamma(mut float: f32) -> f32 {
 	}
 
 	float.clamp(0.0, 1.0)
+}
+
+fn bayer(data: &RawData<'_>, width: usize, height: usize, path: String) -> Vec<u8> {
+	match data {
+		RawData::Packed10bpp { data } => {
+			// Assume 10-bit
+			let size = width * height;
+			let mut ten_data = vec![0; size];
+			unpack::tenbit(data, width * height, ten_data.as_mut_slice());
+
+			// I've only seen it on one color defintion or
+			// something, but there's a black level of 42, so subtract it
+			//ten_data.iter_mut().for_each(|p| *p = p.saturating_sub(42));
+
+			ten_data.into_iter().map(|p| (p >> 2) as u8).collect()
+		}
+		RawData::BayerJpeg {
+			header: _,
+			format,
+			jpeg0,
+			jpeg1,
+			jpeg2,
+			jpeg3,
+		} => {
+			let mut bayered = vec![0; width * height];
+
+			match format {
+				0 => {
+					let mut into = vec![0; (width * height) / 4];
+
+					let mut channel = |jpeg: &[u8], offset: usize| {
+						zune_jpeg::JpegDecoder::new(jpeg)
+							.decode_into(&mut into)
+							.unwrap();
+
+						for idx in 0..into.len() {
+							let ww = width / 2;
+							let in_x = idx % ww;
+							let in_y = idx / ww;
+
+							let bayer_x = (in_x * 2) + (offset % 2);
+							let bayer_y = (in_y * 2) + (offset / 2);
+
+							let bayer_idx = bayer_y * width + bayer_x;
+							bayered[bayer_idx] = into[idx];
+						}
+					};
+
+					//BGGR
+					//RGGB
+					//GRBG
+					channel(jpeg0, 0);
+					channel(jpeg1, 1);
+					channel(jpeg2, 2);
+					channel(jpeg3, 3);
+				}
+				1 => {
+					zune_jpeg::JpegDecoder::new(jpeg0)
+						.decode_into(&mut bayered)
+						.unwrap();
+				}
+				_ => unreachable!(),
+			}
+
+			bayered
+		}
+	}
 }
 
 fn make_png<P: AsRef<std::path::Path>>(

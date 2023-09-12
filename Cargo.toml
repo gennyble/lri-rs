@@ -1,3 +1,3 @@
 [workspace]
-members = ["lri-proto", "lri-rs", "prism"]
+members = ["lri-proto", "lri-rs", "prism", "lri-study"]
 resolver = "2"
