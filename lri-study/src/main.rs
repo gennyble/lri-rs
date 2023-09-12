@@ -4,7 +4,7 @@ use std::{
 };
 
 use camino::Utf8PathBuf;
-use lri_rs::{DataFormat, HdrMode, LriFile, SensorModel};
+use lri_rs::{DataFormat, HdrMode, LriFile, SceneMode, SensorModel};
 use owo_colors::OwoColorize;
 
 const DATA: &'static str = "/Users/gen/thanks_lak";
@@ -84,6 +84,15 @@ fn gather() -> ! {
 				Some(HdrMode::Default) => print!("hdr "),
 				Some(HdrMode::Natural) => print!("{} ", "hdr".bright_green()),
 				Some(HdrMode::Surreal) => print!("{} ", "hdr".bright_magenta()),
+			}
+
+			match lri.scene {
+				None | Some(SceneMode::None) => print!("sc:{} ", "nop".dimmed()),
+				Some(SceneMode::Portrait) => print!("sc:prt "),
+				Some(SceneMode::Landscape) => print!("sc:lnd "),
+				Some(SceneMode::Macro) => print!("sc:mcr "),
+				Some(SceneMode::Sport) => print!("sc:spt "),
+				Some(SceneMode::Night) => print!("sc:ni  "),
 			}
 
 			match lri.af_achieved {

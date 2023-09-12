@@ -5,7 +5,9 @@ use lri_proto::{
 	view_preferences::ViewPreferences, Message as PbMessage,
 };
 
-use crate::{CameraId, CameraInfo, ColorInfo, DataFormat, HdrMode, RawData, RawImage, SensorModel};
+use crate::{
+	CameraId, CameraInfo, ColorInfo, DataFormat, HdrMode, RawData, RawImage, SceneMode, SensorModel,
+};
 
 pub(crate) struct Block<'lri> {
 	pub header: Header,
@@ -216,6 +218,7 @@ impl<'lri> Block<'lri> {
 			image_integration_time_ns,
 			image_gain,
 			hdr_mode,
+			scene_mode,
 			..
 		} = vp;
 
@@ -230,6 +233,10 @@ impl<'lri> Block<'lri> {
 		if let Some(Ok(h)) = hdr_mode.map(|ev| ev.enum_value()) {
 			ext.hdr = Some(h.into());
 		}
+
+		if let Some(Ok(h)) = scene_mode.map(|ev| ev.enum_value()) {
+			ext.scene = Some(h.into());
+		}
 	}
 }
 
@@ -243,6 +250,7 @@ pub(crate) struct ExtractedData {
 	pub image_integration_time: Option<Duration>,
 	pub af_achieved: Option<bool>,
 	pub hdr: Option<HdrMode>,
+	pub scene: Option<SceneMode>,
 }
 
 pub enum Message {

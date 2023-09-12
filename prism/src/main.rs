@@ -88,7 +88,7 @@ fn make(img: &RawImage, path: String) {
 		format!("{}_bjpg", &path[..path.len() - 4]),
 	);
 
-	bayered.iter_mut().for_each(|p| *p = p.saturating_sub(42));
+	//bayered.iter_mut().for_each(|p| *p = p.saturating_sub(42));
 
 	let (mut rgb, color_format) = match img.cfa_string() {
 		Some(cfa_string) => {

@@ -21,6 +21,7 @@ pub struct LriFile<'lri> {
 	pub af_achieved: Option<bool>,
 	pub image_gain: Option<f32>,
 	pub hdr: Option<HdrMode>,
+	pub scene: Option<SceneMode>,
 }
 
 impl<'lri> LriFile<'lri> {
@@ -79,6 +80,7 @@ impl<'lri> LriFile<'lri> {
 			af_achieved: ext.af_achieved,
 			image_gain: ext.image_gain,
 			hdr: ext.hdr,
+			scene: ext.scene,
 		}
 	}
 
@@ -377,6 +379,31 @@ impl From<HDRMode> for HdrMode {
 			HDRMode::HDR_MODE_DEFAULT => Self::Default,
 			HDRMode::HDR_MODE_NATURAL => Self::Natural,
 			HDRMode::HDR_MODE_SURREAL => Self::Surreal,
+		}
+	}
+}
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub enum SceneMode {
+	Portrait,
+	Landscape,
+	Sport,
+	Macro,
+	Night,
+	None,
+}
+
+impl From<lri_proto::view_preferences::view_preferences::SceneMode> for SceneMode {
+	fn from(sm: lri_proto::view_preferences::view_preferences::SceneMode) -> Self {
+		use lri_proto::view_preferences::view_preferences::SceneMode as PbSceneMode;
+
+		match sm {
+			PbSceneMode::SCENE_MODE_PORTRAIT => Self::Portrait,
+			PbSceneMode::SCENE_MODE_LANDSCAPE => Self::Landscape,
+			PbSceneMode::SCENE_MODE_SPORT => Self::Sport,
+			PbSceneMode::SCENE_MODE_MACRO => Self::Macro,
+			PbSceneMode::SCENE_MODE_NIGHT => Self::Night,
+			PbSceneMode::SCENE_MODE_NONE => Self::None,
 		}
 	}
 }
