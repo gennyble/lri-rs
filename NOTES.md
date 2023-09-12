@@ -104,3 +104,16 @@ The header is 32 bytes long. and goes as follows:
 | 4     | message length **OR** unknown |
 | 1     | message type. 0 for `LightHeader` *(as described in lightheader.proto)* or 1 for `view_preferences.proto` |
 | 7     | reserved |
+
+### ***it's September 12th now and I removed this from the readme. putting it here for safekeeping***
+
+[helloavo/Light-L16-Archive](https://github.com/helloavo/Light-L16-Archive):  
+helloavo archived a lot of files and data related to the camera here and I am
+very, very grateful for that. I'm using the `.class` files they ripped from the
+APK. I then used quiltflower to decompile the entire directory. I used this
+command: `java -jar quiltflower.jar -dgs=1 Light-L16-Archive/APKs/light_camera_decompiled`
+
+And it's proved useful! In `light/co/camera/proto/LightHeader.java` we can get an idea
+of the file header?
+
+Can we parse the message in the header with the protobuf as described in: [dllu/lri-rs](https://github.com/dllu/lri-rs/blob/main/proto/lightheader.proto)?
