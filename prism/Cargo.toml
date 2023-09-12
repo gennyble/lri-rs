@@ -11,3 +11,5 @@ png = "0.17.10"
 rawproc = { git = "https://github.com/eclecticnybles/gaze" }
 rawloader = "0.37.1"
 nalgebra = "0.31.4"
+mozjpeg = "0.10.1"
+zune-jpeg = "0.3.17"

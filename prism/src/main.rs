@@ -1,4 +1,4 @@
-use lri_rs::{LriFile, RawImage, Whitepoint};
+use lri_rs::{DataFormat, LriFile, RawImage, Whitepoint};
 use nalgebra::{Matrix3, Matrix3x1};
 
 mod rotate;
@@ -15,7 +15,7 @@ fn main() {
 		.map(|raw| make(raw, String::from("reference.png")));
 
 	for (idx, img) in lri.images().enumerate() {
-		for color in &img.color {
+		/*for color in &img.color {
 			println!(
 				"{:?} rg = {}  bg = {}",
 				color.whitepoint, color.rg, color.bg
@@ -31,10 +31,11 @@ fn main() {
 			println!("\twhite: x = {} y = {} z = {}", white_x, white_y, white_z);
 
 			println!("\t{:?}", color.forward_matrix);
-		}
+		}*/
 		//std::process::exit(0);
 
 		make(img, format!("image_{idx}.png"));
+		return;
 	}
 }
 
@@ -48,7 +49,7 @@ fn make(img: &RawImage, path: String) {
 		width,
 		height,
 		format,
-		data,
+		mut data,
 		sbro,
 		color,
 	} = img;
@@ -57,6 +58,65 @@ fn make(img: &RawImage, path: String) {
 		"{camera} {sensor:?} [{}:{}] {width}x{height} {format}",
 		sbro.0, sbro.1
 	);
+
+	let stem = &path[..path.len() - 4];
+
+	if *format == DataFormat::BayerJpeg {
+		//FF d9 | 42 4A 50 47
+		let bjp_end = &[0xFF, 0xd9, 0x42, 0x4A, 0x50, 0x47];
+		let jfif_start = &[0xFF, 0xD8, 0xFF, 0xE0];
+		let jfif_end = &[0xFF, 0xD9];
+
+		for idx in 0..data.len() {
+			if &data[idx..idx + 6] == bjp_end {
+				data = &data[..idx + 2];
+				break;
+			}
+		}
+
+		let mut start = None;
+		let mut idx = 0;
+		let mut jfif_count = 0;
+		loop {
+			if idx >= data.len() {
+				break;
+			}
+
+			match start {
+				None => {
+					if &data[idx..idx + 4] == jfif_start {
+						start = Some(idx);
+
+						if jfif_count == 0 {
+							let path = format!("{stem}_only.bjp");
+							let out = &data[..idx];
+							std::fs::write(path, out).unwrap();
+						}
+
+						idx += 4;
+						continue;
+					}
+				}
+				Some(start_idx) => {
+					if &data[idx..idx + 2] == jfif_end {
+						let path = format!("{stem}_{jfif_count}.jpg");
+						let out = &data[start_idx..idx + 2];
+						std::fs::write(path, out).unwrap();
+
+						start = None;
+						jfif_count += 1;
+						idx += 2;
+						continue;
+					}
+				}
+			}
+
+			idx += 1;
+		}
+
+		std::fs::write(format!("{}.bjp", &path[..path.len() - 4]), data).unwrap();
+		return;
+	}
 
 	// Assume 10-bit
 	let size = width * height;
