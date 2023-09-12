@@ -4,6 +4,7 @@ use block::{Block, ExtractedData, Header};
 use lri_proto::{
 	camera_id::CameraID as PbCameraID, camera_module::camera_module::surface::FormatType,
 	color_calibration::color_calibration::IlluminantType,
+	view_preferences::view_preferences::HDRMode,
 };
 
 mod block;
@@ -19,6 +20,7 @@ pub struct LriFile<'lri> {
 	pub image_integration_time: Option<Duration>,
 	pub af_achieved: Option<bool>,
 	pub image_gain: Option<f32>,
+	pub hdr: Option<HdrMode>,
 }
 
 impl<'lri> LriFile<'lri> {
@@ -76,6 +78,7 @@ impl<'lri> LriFile<'lri> {
 			image_integration_time: ext.image_integration_time,
 			af_achieved: ext.af_achieved,
 			image_gain: ext.image_gain,
+			hdr: ext.hdr,
 		}
 	}
 
@@ -355,6 +358,25 @@ impl From<lri_proto::sensor_type::SensorType> for SensorModel {
 			ProtoSt::SENSOR_AR1335_MONO => Self::Ar1335Mono,
 			ProtoSt::SENSOR_IMX386 => Self::Imx386,
 			ProtoSt::SENSOR_IMX386_MONO => Self::Imx386Mono,
+		}
+	}
+}
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub enum HdrMode {
+	None,
+	Default,
+	Natural,
+	Surreal,
+}
+
+impl From<HDRMode> for HdrMode {
+	fn from(h: HDRMode) -> Self {
+		match h {
+			HDRMode::HDR_MODE_NONE => Self::None,
+			HDRMode::HDR_MODE_DEFAULT => Self::Default,
+			HDRMode::HDR_MODE_NATURAL => Self::Natural,
+			HDRMode::HDR_MODE_SURREAL => Self::Surreal,
 		}
 	}
 }

@@ -5,7 +5,7 @@ use lri_proto::{
 	view_preferences::ViewPreferences, Message as PbMessage,
 };
 
-use crate::{CameraId, CameraInfo, ColorInfo, DataFormat, RawData, RawImage, SensorModel};
+use crate::{CameraId, CameraInfo, ColorInfo, DataFormat, HdrMode, RawData, RawImage, SensorModel};
 
 pub(crate) struct Block<'lri> {
 	pub header: Header,
@@ -215,6 +215,7 @@ impl<'lri> Block<'lri> {
 		let ViewPreferences {
 			image_integration_time_ns,
 			image_gain,
+			hdr_mode,
 			..
 		} = vp;
 
@@ -224,6 +225,10 @@ impl<'lri> Block<'lri> {
 
 		if let Some(g) = image_gain {
 			ext.image_gain.get_or_insert(g);
+		}
+
+		if let Some(Ok(h)) = hdr_mode.map(|ev| ev.enum_value()) {
+			ext.hdr = Some(h.into());
 		}
 	}
 }
@@ -237,6 +242,7 @@ pub(crate) struct ExtractedData {
 	pub image_gain: Option<f32>,
 	pub image_integration_time: Option<Duration>,
 	pub af_achieved: Option<bool>,
+	pub hdr: Option<HdrMode>,
 }
 
 pub enum Message {
