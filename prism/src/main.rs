@@ -1,6 +1,7 @@
 use lri_rs::{LriFile, RawImage, Whitepoint};
 use nalgebra::{Matrix3, Matrix3x1};
 
+mod rotate;
 mod unpack;
 
 fn main() {
@@ -10,16 +11,32 @@ fn main() {
 
 	println!("{} images", lri.image_count());
 
+	lri.reference_image()
+		.map(|raw| make(raw, String::from("reference.png")));
+
 	for (idx, img) in lri.images().enumerate() {
+		for color in &img.color {
+			println!(
+				"{:?} rg = {}  bg = {}",
+				color.whitepoint, color.rg, color.bg
+			);
+
+			let white =
+				Matrix3::from_row_slice(&color.forward_matrix) * Matrix3x1::new(1.0, 1.0, 1.0);
+
+			let white_x = white[0] / (white[0] + white[1] + white[2]);
+			let white_y = white[1] / (white[0] + white[1] + white[2]);
+			let white_z = 1.0 - white_x - white_y;
+
+			println!("\twhite: x = {} y = {} z = {}", white_x, white_y, white_z);
+
+			println!("\t{:?}", color.forward_matrix);
+		}
+		//std::process::exit(0);
+
 		make(img, format!("image_{idx}.png"));
 	}
 }
-
-// R G R G
-// G B G B
-// R G R G
-
-const CFAS: &[&'static str] = &["RGGB", "GRBG", "GBRG", "BGGR"];
 
 fn make(img: &RawImage, path: String) {
 	use rawproc::image::RawMetadata;
@@ -72,7 +89,7 @@ fn make(img: &RawImage, path: String) {
 	// C5 - RO
 	// C6 - -1:-1
 
-	let (rgb, color_format) = match img.cfa_string() {
+	let (mut rgb, color_format) = match img.cfa_string() {
 		Some(cfa_string) => {
 			let rawimg: Image<u16, BayerRgb> = Image::from_raw_parts(
 				4160,
@@ -94,20 +111,41 @@ fn make(img: &RawImage, path: String) {
 		None => (ten_data, png::ColorType::Grayscale),
 	};
 
+	rotate::rotate_180(rgb.as_mut_slice());
+
 	let mut floats: Vec<f32> = rgb.into_iter().map(|p| p as f32 / 1023.0).collect();
 
 	print!("\t");
 	color.iter().for_each(|c| print!("{:?} ", c.whitepoint));
 	println!();
 
-	match img.daylight() {
+	match img.color_info(Whitepoint::F11) {
 		Some(c) => {
 			//println!("\tApplying color profile: {:?}", c.color_matrix);
 			let to_xyz = Matrix3::from_row_slice(&c.forward_matrix);
 			let to_srgb = Matrix3::from_row_slice(&BRUCE_XYZ_RGB_D65);
-			//let color = Matrix3::from_row_slice(&c.color_matrix);
+			let color = Matrix3::from_row_slice(&c.color_matrix);
+			let d50_d65 = Matrix3::from_row_slice(&BRADFORD_D50_D65);
+
+			let xyz_d65 = to_xyz * d50_d65;
+
+			println!("{color}");
+
+			let white = xyz_d65 * Matrix3x1::new(1.0, 1.0, 1.0);
+
+			let white_x = white[0] / (white[0] + white[1] + white[2]);
+			let white_y = white[1] / (white[0] + white[1] + white[2]);
+			let white_z = 1.0 - white_x - white_y;
+
+			println!(
+				"\t{:?} ||| white: x = {} y = {} z = {}",
+				c.whitepoint, white_x, white_y, white_z
+			);
 
 			let premul = to_xyz * to_srgb;
+
+			let prenorm = premul.normalize();
+			println!("{prenorm}");
 
 			for chnk in floats.chunks_mut(3) {
 				let r = chnk[0] * (1.0 / c.rg);
@@ -117,7 +155,10 @@ fn make(img: &RawImage, path: String) {
 				let px = Matrix3x1::new(r, g, b);
 
 				//let rgb = premul * px;
+				//let px = color * px;
 				let xyz = to_xyz * px;
+				//let xyz = d50_d65 * xyz;
+				//let xyz_white = color * xyz;
 				let rgb = to_srgb * xyz;
 
 				chnk[0] = srgb_gamma(rgb[0]) * 255.0;
@@ -147,9 +188,16 @@ const BRUCE_XYZ_RGB_D50: [f32; 9] = [
 
 #[rustfmt::skip]
 const BRUCE_XYZ_RGB_D65: [f32; 9] = [
-	3.2404542,  -1.5371385, -0.4985314,
+	 3.2404542, -1.5371385, -0.4985314,
 	-0.9692660,  1.8760108,  0.0415560,
- 	0.0556434,  -0.2040259,  1.0572252
+ 	 0.0556434, -0.2040259,  1.0572252
+];
+
+#[rustfmt::skip]
+const BRADFORD_D50_D65: [f32; 9] = [
+	 0.9555766, -0.0230393,  0.0631636,
+	-0.0282895,  1.0099416,  0.0210077,
+	 0.0122982, -0.0204830,  1.3299098,
 ];
 
 #[inline]
