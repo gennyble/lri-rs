@@ -1,3 +1,5 @@
+Still early days. It's usable, to some degree, but nothing is stable, everything is broken, and I will scream.
+
 ### LRI File Structure
 The file is made up if blocks each with a short header, a protobuf message, and possibly some associated data.
 
