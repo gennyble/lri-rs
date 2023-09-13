@@ -79,15 +79,16 @@ fn gather() -> ! {
 			);
 
 			match lri.hdr {
-				None => print!("{} ", "hdr".dimmed()),
-				Some(HdrMode::None) => print!("{} ", "hdr".blue()),
-				Some(HdrMode::Default) => print!("hdr "),
-				Some(HdrMode::Natural) => print!("{} ", "hdr".bright_green()),
-				Some(HdrMode::Surreal) => print!("{} ", "hdr".bright_magenta()),
+				None => print!("hdr:{} ", "non".dimmed()),
+				Some(HdrMode::None) => print!("hdr:{} ", "nop".dimmed()),
+				Some(HdrMode::Default) => print!("hdr:hdr "),
+				Some(HdrMode::Natural) => print!("hdr:{} ", "nat".bright_green()),
+				Some(HdrMode::Surreal) => print!("hdr:{} ", "sur".bright_magenta()),
 			}
 
 			match lri.scene {
-				None | Some(SceneMode::None) => print!("sc:{} ", "nop".dimmed()),
+				None => print!("sc:{} ", "non".dimmed()),
+				Some(SceneMode::None) => print!("sc:{} ", "nop".dimmed()),
 				Some(SceneMode::Portrait) => print!("sc:prt "),
 				Some(SceneMode::Landscape) => print!("sc:lnd "),
 				Some(SceneMode::Macro) => print!("sc:mcr "),

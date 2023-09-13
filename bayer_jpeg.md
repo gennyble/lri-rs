@@ -1,6 +1,7 @@
 # BayerJPEG
-Th BayerJPEG is a strange format used by the Light L16... *sometimes*. We don't yet know when it switches from it's normal packed 10-bit raw format.
+The BayerJPEG is a strange format used by the Light L16... *sometimes*. We don't yet know when it switches from it's normal packed 10-bit raw format to this, or why.
 
+### BayerJPEG Header
 | size    | type   | meaning |
 | ------- | ------ | ------- |
 | 4 bytes | String | Magic Number "BJPG" |
@@ -11,10 +12,10 @@ Th BayerJPEG is a strange format used by the Light L16... *sometimes*. We don't 
 | 4 bytes | u32    | Length of Jpeg 3 |
 | 1552 bytes | | unknown |
 
-***Monochrome***  
+***Foramt Type: Monochrome***  
 Jpeg0 contains a full resolution grayscale image
 
-***Colour***  
+***Format Type: Colour***  
 The bayered image is split across the four Jpeg, one
 for each colour location.
 
