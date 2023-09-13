@@ -1,3 +1,6 @@
+*(TODO: blog post?)*  
+*(this is bad, do better)*
+
 # Anatomy of an LRI
 The file is made up of many blocks, usually 10 or 11 but cases of 40 have occurred.
 
@@ -52,3 +55,34 @@ In either colour-case, the `row_stride` in the `sensor_data_surface` will be 0. 
 ##### that's enough BayerJPEG
 
 Going back to CameraModule, there's some more important data for image interpretation. You'll want the `id` which indicates which camera took the exposure. We can map this to a sensor model later! Grab `sensor_bayer_red_override` while you're at it. It'll help with figuring out what CFA we need to use for debayering.
+
+Back in the LightHeader now we'll go to `hw_info`, type HwInfo ([proto][hwi-proto]), then to `camera` which is a CameraModuleHwInfo (described on line 8 in the HwInfo definition). From this we can associate a CameraID, `id`, with a SensorType, `sensor`. It might be good to note here that there are quite a few SensorType defined, but i've only ever seen AR1335 and it's monochrome variant. Perhaps the others were used in development?
+
+[hwi-proto]: /lri-proto/proto/hw_info.proto
+
+<details>
+	<summary><i>note on the above</i></summary>
+	<p>
+		I'm not sure how necessary it is to make this map. Is it ridiculous to assume that the CameraID are consistent between L16 and they they are the same SensorType? This could very well be hard coded with very little harm.
+	</p>
+</details>
+
+##### `sensor_bayer_red_override`
+As far as I can tell this tells us how to shift the CFA for the specific camera. I don't know why it's different; perhaps it's cropped before writing to disk?
+
+Anyway, the x/y you're given seem to map to where Red should be in the 2x2 array. For example, if you have a BGGR cfa and your override is x=1 y=0, you should end up with GRBG (See the ascii diagram below).
+```
+BGGR cfa                 GRBG cfa
+
+B G B G                  G R G R
+G R G R  -> override ->  B G B G
+B G B G     x:1, y:0     G R G R
+G R G R                  G B G B
+```
+
+#### Colour Data
+Oh yeah, this is my favourite part. It makes me so excited.
+
+Oooh I *am* excited, but I am also TIRED so I will GO TO SLEEP:
+
+TODO FIXME gen
