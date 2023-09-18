@@ -96,6 +96,12 @@ fn gather() -> ! {
 				Some(SceneMode::Night) => print!("sc:ni  "),
 			}
 
+			match lri.on_tripod {
+				None => print!("{} ", "tri".dimmed()),
+				Some(false) => print!("{} ", "tri".red()),
+				Some(true) => print!("{} ", "tri".green()),
+			}
+
 			match lri.af_achieved {
 				None => print!("{} - ", "af".dimmed()),
 				Some(false) => print!("{} - ", "af".red()),

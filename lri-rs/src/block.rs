@@ -219,6 +219,7 @@ impl<'lri> Block<'lri> {
 			image_gain,
 			hdr_mode,
 			scene_mode,
+			is_on_tripod,
 			..
 		} = vp;
 
@@ -237,6 +238,10 @@ impl<'lri> Block<'lri> {
 		if let Some(Ok(h)) = scene_mode.map(|ev| ev.enum_value()) {
 			ext.scene = Some(h.into());
 		}
+
+		if let Some(tri) = is_on_tripod {
+			ext.on_tripod = Some(tri);
+		}
 	}
 }
 
@@ -251,6 +256,7 @@ pub(crate) struct ExtractedData {
 	pub af_achieved: Option<bool>,
 	pub hdr: Option<HdrMode>,
 	pub scene: Option<SceneMode>,
+	pub on_tripod: Option<bool>,
 }
 
 pub enum Message {

@@ -22,6 +22,7 @@ pub struct LriFile<'lri> {
 	pub image_gain: Option<f32>,
 	pub hdr: Option<HdrMode>,
 	pub scene: Option<SceneMode>,
+	pub on_tripod: Option<bool>,
 }
 
 impl<'lri> LriFile<'lri> {
@@ -81,6 +82,7 @@ impl<'lri> LriFile<'lri> {
 			image_gain: ext.image_gain,
 			hdr: ext.hdr,
 			scene: ext.scene,
+			on_tripod: ext.on_tripod,
 		}
 	}
 
