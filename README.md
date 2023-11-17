@@ -10,7 +10,7 @@ I took some notes as I worked on this that are in [NOTES.md](NOTES.md) if you're
 A Rust crate for parsing LRI files. This library isn't perfect, but it works enough to be able to grab image data from the filee.
 
 ## prism
-Breaks an LRI into the individual images it contains.
+Breaks an LRI into the individual images it contains. `prism <lri> <output_directory>`
 
 TODO: I'd like to, one day, be able to write DNG files from prism, but currently it just spits out PNG.
 
