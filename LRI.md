@@ -3,6 +3,8 @@ The file is made up of many blocks, usually 10 or 11 but cases of 40 have occurr
 
 Blocks start with a header and contain some data. There is always a protobuf message within that data, and sometimes stuff like the images themselves.
 
+Little-endian.
+
 ## Block Header
 The header is 32 bytes long. and goes as follows:  
 | bytes | type | meaning |
