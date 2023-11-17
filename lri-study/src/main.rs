@@ -7,8 +7,6 @@ use camino::Utf8PathBuf;
 use lri_rs::{DataFormat, HdrMode, LriFile, SceneMode, SensorModel};
 use owo_colors::OwoColorize;
 
-const DATA: &'static str = "/Users/gen/thanks_lak";
-
 fn main() {
 	match std::env::args().nth(1).as_deref() {
 		Some("gather") => gather(),
@@ -17,7 +15,8 @@ fn main() {
 }
 
 fn gather() -> ! {
-	let data_dir = Utf8PathBuf::from(DATA);
+	let path = std::env::args().nth(2).unwrap();
+	let data_dir = Utf8PathBuf::from(path);
 	let mut files: HashMap<String, Photo> = HashMap::new();
 
 	for entry in data_dir.read_dir_utf8().unwrap() {
@@ -51,7 +50,7 @@ fn gather() -> ! {
 	let mut photos: Vec<Photo> = files.into_values().collect();
 	photos.sort_by(|a, b| a.lri.as_deref().unwrap().cmp(b.lri.as_deref().unwrap()));
 
-	for photo in photos {
+	for (idx, photo) in photos.into_iter().enumerate() {
 		let lri_path = match photo.lri {
 			Some(p) => p,
 			None => continue,
@@ -66,6 +65,10 @@ fn gather() -> ! {
 		let lri = LriFile::decode(&data);
 
 		print!("{} - ", lri_path.file_stem().unwrap());
+
+		let path = format!("{}_{idx}", lri_path.file_stem().unwrap_or_default());
+		let dbg = format!("{:#?}", lri.sig);
+		std::fs::write(path, dbg.as_bytes()).unwrap();
 
 		if let Some(fwv) = lri.firmware_version.as_ref() {
 			print!(

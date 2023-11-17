@@ -6,7 +6,8 @@ use lri_proto::{
 };
 
 use crate::{
-	CameraId, CameraInfo, ColorInfo, DataFormat, HdrMode, RawData, RawImage, SceneMode, SensorModel,
+	fine::Signature, CameraId, CameraInfo, ColorInfo, DataFormat, HdrMode, RawData, RawImage,
+	SceneMode, SensorModel,
 };
 
 pub(crate) struct Block<'lri> {
@@ -45,6 +46,7 @@ impl<'lri> Block<'lri> {
 		images: &mut Vec<RawImage<'lri>>,
 		colors: &mut Vec<ColorInfo>,
 		infos: &mut Vec<CameraInfo>,
+		sig: &mut Signature,
 	) {
 		let LightHeader {
 			mut hw_info,
@@ -54,8 +56,10 @@ impl<'lri> Block<'lri> {
 			device_fw_version,
 			image_focal_length,
 			af_info,
+			mut view_preferences,
 			..
 		} = if let Message::LightHeader(lh) = self.message() {
+			sig.merge(&lh);
 			lh
 		} else if let Message::ViewPreferences(vp) = self.message() {
 			self.extract_view(vp, ext);
@@ -74,6 +78,10 @@ impl<'lri> Block<'lri> {
 
 				infos.push(info);
 			}
+		}
+
+		if let Some(vp) = view_preferences.take() {
+			self.extract_view(vp, ext);
 		}
 
 		// Color information for the Camera moduels.

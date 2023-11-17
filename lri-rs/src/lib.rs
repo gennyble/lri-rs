@@ -1,6 +1,7 @@
 use std::{fmt, time::Duration};
 
 use block::{Block, ExtractedData, Header};
+use fine::Signature;
 use lri_proto::{
 	camera_id::CameraID as PbCameraID, camera_module::camera_module::surface::FormatType,
 	color_calibration::color_calibration::IlluminantType,
@@ -8,6 +9,7 @@ use lri_proto::{
 };
 
 mod block;
+mod fine;
 
 pub struct LriFile<'lri> {
 	pub image_reference_camera: Option<CameraId>,
@@ -23,6 +25,7 @@ pub struct LriFile<'lri> {
 	pub hdr: Option<HdrMode>,
 	pub scene: Option<SceneMode>,
 	pub on_tripod: Option<bool>,
+	pub sig: Signature,
 }
 
 impl<'lri> LriFile<'lri> {
@@ -33,6 +36,7 @@ impl<'lri> LriFile<'lri> {
 		let mut camera_infos = vec![];
 
 		let mut ext = ExtractedData::default();
+		let mut sig = Signature::new();
 
 		// Read data blocks and extract informtion we care about
 		loop {
@@ -51,7 +55,13 @@ impl<'lri> LriFile<'lri> {
 				data: block_data,
 			};
 
-			block.extract_meaningful_data(&mut ext, &mut images, &mut colors, &mut camera_infos);
+			block.extract_meaningful_data(
+				&mut ext,
+				&mut images,
+				&mut colors,
+				&mut camera_infos,
+				&mut sig,
+			);
 		}
 
 		// Further fill in the RawImage's we extracted
@@ -83,6 +93,7 @@ impl<'lri> LriFile<'lri> {
 			hdr: ext.hdr,
 			scene: ext.scene,
 			on_tripod: ext.on_tripod,
+			sig,
 		}
 	}
 
