@@ -9,7 +9,7 @@ so I figured looking for known data could help? I decided looking for a timestam
 would be the best bet because the camera gives me that information in the gallery
 app. Down to the minute, at least. We already know some of the protobuf definitions
 because of work by [Daniel Lawrence Lu](https://github.com/dllu)! That work can be
-found in [lri-rs](https://github.com/dllu/lri-rs).
+found in [dllu/lri-rs](https://github.com/dllu/lri-rs).
 
 [lri-rs_lightheader]: https://github.com/dllu/lri-rs/blob/main/proto/lightheader.proto#L77-L106
 
@@ -116,4 +116,4 @@ command: `java -jar quiltflower.jar -dgs=1 Light-L16-Archive/APKs/light_camera_d
 And it's proved useful! In `light/co/camera/proto/LightHeader.java` we can get an idea
 of the file header?
 
-Can we parse the message in the header with the protobuf as described in: [dllu/lri-rs](https://github.com/dllu/lri-rs/blob/main/proto/lightheader.proto)?
+Can we parse the message in the header with the protobuf as described in: [dllu/lri-rs](https://github.com/dllu/lri-rs/blob/main/proto/lightheader.proto)? *(genny from the future, Nov 17th: yes we can :D)*

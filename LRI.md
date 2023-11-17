@@ -1,6 +1,3 @@
-*(TODO: blog post?)*  
-*(this is bad, do better)*
-
 # Anatomy of an LRI
 The file is made up of many blocks, usually 10 or 11 but cases of 40 have occurred.
 
