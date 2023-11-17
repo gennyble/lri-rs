@@ -7,9 +7,9 @@ fn main() {
 	let proto_dir = "src/proto";
 
 	if Path::new(&proto_dir).exists() {
-		fs::remove_dir_all(&proto_dir).unwrap();
+		fs::remove_dir_all(proto_dir).unwrap();
 	}
-	fs::create_dir(&proto_dir).unwrap();
+	fs::create_dir(proto_dir).unwrap();
 
 	protobuf_codegen::Codegen::new()
 		.pure()
