@@ -6,7 +6,7 @@ use lri_proto::{
 };
 
 use crate::{
-	fine::Signature, CameraId, CameraInfo, ColorInfo, DataFormat, HdrMode, RawData, RawImage,
+	AwbGain, AwbMode, CameraId, CameraInfo, ColorInfo, DataFormat, HdrMode, RawData, RawImage,
 	SceneMode, SensorModel,
 };
 
@@ -17,15 +17,18 @@ pub(crate) struct Block<'lri> {
 }
 
 impl<'lri> Block<'lri> {
+	/// Get a slice to the entire body of this block
 	pub fn body(&self) -> &[u8] {
 		&self.data[32..]
 	}
 
+	/// Get a slice to this block's messge data
 	pub fn message_data(&self) -> &[u8] {
 		let end = self.header.message_offset + self.header.message_length;
 		&self.data[self.header.message_offset..end]
 	}
 
+	/// Parse the message
 	pub fn message(&self) -> Message {
 		match self.header.kind {
 			BlockType::LightHeader => {
@@ -46,7 +49,6 @@ impl<'lri> Block<'lri> {
 		images: &mut Vec<RawImage<'lri>>,
 		colors: &mut Vec<ColorInfo>,
 		infos: &mut Vec<CameraInfo>,
-		sig: &mut Signature,
 	) {
 		let LightHeader {
 			mut hw_info,
@@ -59,7 +61,6 @@ impl<'lri> Block<'lri> {
 			mut view_preferences,
 			..
 		} = if let Message::LightHeader(lh) = self.message() {
-			sig.merge(&lh);
 			lh
 		} else if let Message::ViewPreferences(vp) = self.message() {
 			self.extract_view(vp, ext);
@@ -228,6 +229,8 @@ impl<'lri> Block<'lri> {
 			hdr_mode,
 			scene_mode,
 			is_on_tripod,
+			awb_mode,
+			awb_gains,
 			..
 		} = vp;
 
@@ -250,6 +253,14 @@ impl<'lri> Block<'lri> {
 		if let Some(tri) = is_on_tripod {
 			ext.on_tripod = Some(tri);
 		}
+
+		if let Some(Ok(awbmode)) = awb_mode.map(|ev| ev.enum_value()) {
+			ext.awb = Some(awbmode.into());
+		}
+
+		if let Some(gain) = awb_gains.into_option() {
+			ext.awb_gain = Some(gain.into());
+		}
 	}
 }
 
@@ -265,6 +276,9 @@ pub(crate) struct ExtractedData {
 	pub hdr: Option<HdrMode>,
 	pub scene: Option<SceneMode>,
 	pub on_tripod: Option<bool>,
+
+	pub awb: Option<AwbMode>,
+	pub awb_gain: Option<AwbGain>,
 }
 
 pub enum Message {

@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
-use lri_rs::{CameraId, DataFormat, LriFile, RawData, RawImage, SensorModel, Whitepoint};
+use camino::Utf8PathBuf;
+use lri_rs::{AwbGain, CameraId, LriFile, RawData, RawImage, SensorModel, Whitepoint};
 use nalgebra::{Matrix3, Matrix3x1};
 
 mod rotate;
@@ -12,14 +13,29 @@ pub struct Entry {
 }
 
 fn main() {
+	let args = std::env::args().skip(1);
+
+	if args.len() != 2 {
+		eprintln!("Usage: prism <lri_file> <output_directory>");
+		std::process::exit(1);
+	}
+
 	let file_name = std::env::args().nth(1).unwrap();
+	let directory = Utf8PathBuf::from(std::env::args().nth(2).unwrap());
+
+	if !directory.exists() {
+		std::fs::create_dir_all(&directory).unwrap();
+	}
+
 	let bytes = std::fs::read(file_name).unwrap();
 	let lri = LriFile::decode(&bytes);
+	let gain = lri.awb_gain.unwrap();
 
 	println!("{} images", lri.image_count());
 
-	lri.reference_image()
-		.map(|raw| make(raw, String::from("reference.png")));
+	if let Some(refimg) = lri.reference_image() {
+		make(refimg, directory.join("reference.png"), gain);
+	}
 
 	let mut set: HashMap<CameraId, Entry> = HashMap::new();
 
@@ -32,36 +48,16 @@ fn main() {
 			});
 	}
 
-	set.into_iter().for_each(|kv| {
+	/*set.into_iter().for_each(|kv| {
 		println!("{} {:?} {}", kv.0, kv.1.sensor, kv.1.count);
-	});
+	});*/
 
 	for (idx, img) in lri.images().enumerate() {
-		/*for color in &img.color {
-			println!(
-				"{:?} rg = {}  bg = {}",
-				color.whitepoint, color.rg, color.bg
-			);
-
-			let white =
-				Matrix3::from_row_slice(&color.forward_matrix) * Matrix3x1::new(1.0, 1.0, 1.0);
-
-			let white_x = white[0] / (white[0] + white[1] + white[2]);
-			let white_y = white[1] / (white[0] + white[1] + white[2]);
-			let white_z = 1.0 - white_x - white_y;
-
-			println!("\twhite: x = {} y = {} z = {}", white_x, white_y, white_z);
-
-			println!("\t{:?}", color.forward_matrix);
-		}*/
-		//std::process::exit(0);
-
-		make(img, format!("image_{idx}.png"));
-		//return;
+		make(img, directory.join(format!("image_{idx}.png")), gain);
 	}
 }
 
-fn make(img: &RawImage, path: String) {
+fn make(img: &RawImage, path: Utf8PathBuf, awb_gain: AwbGain) {
 	use rawproc::image::RawMetadata;
 	use rawproc::{colorspace::BayerRgb, image::Image};
 
@@ -81,14 +77,7 @@ fn make(img: &RawImage, path: String) {
 		sbro.0, sbro.1
 	);
 
-	let mut bayered = bayer(
-		data,
-		*width,
-		*height,
-		format!("{}_bjpg", &path[..path.len() - 4]),
-	);
-
-	//bayered.iter_mut().for_each(|p| *p = p.saturating_sub(42));
+	let bayered = bayer(data, *width, *height);
 
 	let (mut rgb, color_format) = match img.cfa_string() {
 		Some(cfa_string) => {
@@ -114,56 +103,35 @@ fn make(img: &RawImage, path: String) {
 	};
 
 	rotate::rotate_180(rgb.as_mut_slice());
-
 	let mut floats: Vec<f32> = rgb.into_iter().map(|p| p as f32 / 255.0).collect();
 
-	if color.len() > 0 {
-		print!("\t");
+	if !color.is_empty() {
+		print!("\tAvailable whitepoints: ");
 		color.iter().for_each(|c| print!("{:?} ", c.whitepoint));
 		println!();
 	}
 
-	match img.color_info(Whitepoint::F11) {
+	match img.color_info(Whitepoint::D65) {
 		Some(c) => {
-			//println!("\tApplying color profile: {:?}", c.color_matrix);
+			println!("\tUsing D65");
 			let to_xyz = Matrix3::from_row_slice(&c.forward_matrix);
-			let to_srgb = Matrix3::from_row_slice(&BRUCE_XYZ_RGB_D65);
-			let color = Matrix3::from_row_slice(&c.color_matrix);
-			let d50_d65 = Matrix3::from_row_slice(&BRADFORD_D50_D65);
-
-			let xyz_d65 = to_xyz * d50_d65;
-
-			//println!("{color}");
-
-			let white = xyz_d65 * Matrix3x1::new(1.0, 1.0, 1.0);
-
-			let white_x = white[0] / (white[0] + white[1] + white[2]);
-			let white_y = white[1] / (white[0] + white[1] + white[2]);
-			let white_z = 1.0 - white_x - white_y;
-
-			/*println!(
-				"\t{:?} ||| white: x = {} y = {} z = {}",
-				c.whitepoint, white_x, white_y, white_z
-			);*/
+			// We're using Whitepoint::D65, but there is no D50 profile.
+			// If we use the BRUCE_XYZ_RGB_D65 matrix the image
+			// comes out too warm.
+			let to_srgb = Matrix3::from_row_slice(&BRUCE_XYZ_RGB_D50);
 
 			let premul = to_xyz * to_srgb;
 
-			let prenorm = premul.normalize();
-			//println!("{prenorm}");
-
 			for chnk in floats.chunks_mut(3) {
-				let r = chnk[0] * (1.0 / c.rg);
+				/*let r = chnk[0] * (1.0 / c.rg);
 				let g = chnk[1];
-				let b = chnk[2] * (1.0 / c.bg);
+				let b = chnk[2] * (1.0 / c.bg);*/
+				let r = chnk[0] * awb_gain.r;
+				let g = chnk[1];
+				let b = chnk[2] * awb_gain.b;
 
 				let px = Matrix3x1::new(r, g, b);
-
-				//let rgb = premul * px;
-				//let px = color * px;
-				let xyz = to_xyz * px;
-				//let xyz = d50_d65 * xyz;
-				//let xyz_white = color * xyz;
-				let rgb = to_srgb * xyz;
+				let rgb = premul * px;
 
 				chnk[0] = srgb_gamma(rgb[0]) * 255.0;
 				chnk[1] = srgb_gamma(rgb[1]) * 255.0;
@@ -171,14 +139,14 @@ fn make(img: &RawImage, path: String) {
 			}
 		}
 		None => {
-			println!("\tno color profile found");
+			println!("\tColor profile for D65 not found. Doing gamma and nothing else!");
 			floats.iter_mut().for_each(|f| *f = srgb_gamma(*f) * 255.0);
 		}
 	}
 
 	let bytes: Vec<u8> = floats.into_iter().map(|f| f as u8).collect();
 
-	println!("Writing {}", &path);
+	println!("\tWriting {}", &path);
 	make_png(path, *width, *height, &bytes, color_format)
 }
 
@@ -215,19 +183,22 @@ pub fn srgb_gamma(mut float: f32) -> f32 {
 	float.clamp(0.0, 1.0)
 }
 
-fn bayer(data: &RawData<'_>, width: usize, height: usize, path: String) -> Vec<u8> {
+fn bayer(data: &RawData<'_>, width: usize, height: usize) -> Vec<u8> {
 	match data {
 		RawData::Packed10bpp { data } => {
-			// Assume 10-bit
 			let size = width * height;
 			let mut ten_data = vec![0; size];
 			unpack::tenbit(data, width * height, ten_data.as_mut_slice());
 
 			// I've only seen it on one color defintion or
-			// something, but there's a black level of 42, so subtract it
+			// something, but there's a black level of 42, so subtract it.
+			// without it the image is entirely too red.
 			//ten_data.iter_mut().for_each(|p| *p = p.saturating_sub(42));
 
-			ten_data.into_iter().map(|p| (p >> 2) as u8).collect()
+			ten_data
+				.into_iter()
+				.map(|p| ((p.saturating_sub(42)) >> 2) as u8)
+				.collect()
 		}
 		RawData::BayerJpeg {
 			header: _,

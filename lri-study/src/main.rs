@@ -4,10 +4,11 @@ use std::{
 };
 
 use camino::Utf8PathBuf;
-use lri_rs::{DataFormat, HdrMode, LriFile, SceneMode, SensorModel};
+use lri_rs::{AwbMode, DataFormat, HdrMode, LriFile, SceneMode, SensorModel};
 use owo_colors::OwoColorize;
 
 fn main() {
+	#[allow(clippy::single_match)]
 	match std::env::args().nth(1).as_deref() {
 		Some("gather") => gather(),
 		_ => (),
@@ -31,15 +32,15 @@ fn gather() -> ! {
 				Some("jpg") => files
 					.entry(stub.clone())
 					.and_modify(|e| e.jpg = Some(path.to_owned()))
-					.or_insert(Photo::new_jpg(&path)),
+					.or_insert(Photo::new_jpg(path)),
 				Some("lri") => files
 					.entry(stub.clone())
 					.and_modify(|e| e.lri = Some(path.to_owned()))
-					.or_insert(Photo::new_lri(&path)),
+					.or_insert(Photo::new_lri(path)),
 				Some("lris") => files
 					.entry(stub.clone())
 					.and_modify(|e| e.lris = Some(path.to_owned()))
-					.or_insert(Photo::new_lris(&path)),
+					.or_insert(Photo::new_lris(path)),
 				None | Some(_) => continue,
 			};
 		}
@@ -50,7 +51,7 @@ fn gather() -> ! {
 	let mut photos: Vec<Photo> = files.into_values().collect();
 	photos.sort_by(|a, b| a.lri.as_deref().unwrap().cmp(b.lri.as_deref().unwrap()));
 
-	for (idx, photo) in photos.into_iter().enumerate() {
+	for (_idx, photo) in photos.into_iter().enumerate() {
 		let lri_path = match photo.lri {
 			Some(p) => p,
 			None => continue,
@@ -65,10 +66,6 @@ fn gather() -> ! {
 		let lri = LriFile::decode(&data);
 
 		print!("{} - ", lri_path.file_stem().unwrap());
-
-		let path = format!("{}_{idx}", lri_path.file_stem().unwrap_or_default());
-		let dbg = format!("{:#?}", lri.sig);
-		std::fs::write(path, dbg.as_bytes()).unwrap();
 
 		if let Some(fwv) = lri.firmware_version.as_ref() {
 			print!(
@@ -110,6 +107,24 @@ fn gather() -> ! {
 				Some(false) => print!("{} - ", "af".red()),
 				Some(true) => print!("{} - ", "af".green()),
 			}
+
+			match lri.awb {
+				None => print!("{}:", "awb".dimmed()),
+				Some(AwbMode::Auto) => print!("{}:", "awb".white()),
+				Some(AwbMode::Daylight) => print!("{}:", "awb".yellow()),
+			}
+
+			match lri.awb_gain {
+				None => print!("{} - ", "gain".dimmed()),
+				Some(gain) => print!(
+					"{} - [{:.2},{:.2},{:.2},{:.2}] ",
+					"gain".white(),
+					gain.r,
+					gain.gr,
+					gain.gr,
+					gain.b
+				),
+			}
 		}
 
 		for img in lri.images() {
@@ -127,7 +142,7 @@ fn gather() -> ! {
 				DataFormat::Packed10bpp => print!("{} ", sens.yellow()),
 			}
 		}
-		println!("");
+		println!();
 	}
 
 	println!("        ---\nTook {:.2}s", start.elapsed().as_secs_f32());
